@@ -233,7 +233,7 @@ footer .wrap span:last-child { margin-left: auto; }
     <div class="card">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H20v-3M8 7h8M8 11h6"/></svg>
       <h3>文献管理</h3>
-      <p>BibTeX 文献库可搜索，标出引用了却不存在、存在却从未引用、重复的条目；DOI / arXiv 一键导入（规划中）。</p>
+      <p>BibTeX 文献库可搜索，标出引用了却不存在、存在却从未引用、重复的条目；粘贴 DOI 或 arXiv 编号即可导入。</p>
     </div>
     <div class="card">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
@@ -289,14 +289,14 @@ sections/method.tex:2: <span class="w">warning</span>[unreferenced_asset] 图 `f
 <section id="roadmap" class="wrap">
   <div class="eyebrow">路线图</div>
   <h2>正在开发中</h2>
-  <p class="intro">研墨目前处于早期开发阶段，下面是首个版本 v0.1 的进度。</p>
+  <p class="intro">首个预览版 v0.1 即将发布，下面是各部分的进度。</p>
   <ol class="road">
     <li class="done"><b>结构解析与检查</b><span class="tag">已完成</span><p>容错的 LaTeX 结构解析器、文献解析与 <code>ym check</code> 命令行。</p></li>
     <li class="done"><b>桌面应用外壳</b><span class="tag">已完成</span><p>编辑器、大纲、图表、文献与问题面板，统一命令注册表。</p></li>
     <li class="done"><b>编译与 PDF 预览</b><span class="tag">已完成</span><p>内置 Tectonic、编译日志定位、SyncTeX 双向跳转、Pandoc 导出 Word。</p></li>
-    <li class="now"><b>结构化管理增强</b><span class="tag">进行中</span><p>章节拖拽重排、DOI / arXiv 导入、图片拖入自动插入。</p></li>
-    <li><b>AI 辅助</b><p>多厂商自带 Key、选区润色与翻译、diff 确认。</p></li>
-    <li><b>v0.1 发布</b><p>macOS、Windows、Linux 安装包。</p></li>
+    <li class="done"><b>结构化管理增强</b><span class="tag">已完成</span><p>DOI / arXiv 一键导入、拖入或粘贴图片自动插入、图表缩略图与编号。</p></li>
+    <li class="done"><b>AI 辅助</b><span class="tag">已完成</span><p>自带 Key（Claude、DeepSeek、Ollama 等）、选区润色与翻译、对比确认后才写入。</p></li>
+    <li class="now"><b>v0.1 发布</b><span class="tag">进行中</span><p>macOS、Windows、Linux 安装包，内置编译引擎。</p></li>
   </ol>
 </section>
 
