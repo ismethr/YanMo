@@ -66,7 +66,14 @@
   {/if}
   <StatusBar />
   {#if app.palette}<CommandPalette />{/if}
-  {#if app.notice}<div class="toast" role="status">{app.notice}</div>{/if}
+  {#if app.notice}
+    <div class="toast" role="status">
+      <span>{app.notice.text}</span>
+      {#if app.notice.action}
+        <button class="btn" onclick={() => { app.notice?.action?.run(); app.notice = null; }}>{app.notice.action.label}</button>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -88,6 +95,9 @@
     flex-direction: column;
   }
   .toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     position: absolute;
     right: 16px;
     bottom: 36px;

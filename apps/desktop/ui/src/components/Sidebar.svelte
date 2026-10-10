@@ -70,6 +70,14 @@
     {@render tree(app.tree, 0)}
   {:else if app.activity === 'outline'}
     <div class="sec-h">论文大纲</div>
+    {#if (app.project?.roots.length ?? 0) > 1}
+      <div class="main-pick">
+        <label for="mainsel" class="muted">主文件</label>
+        <select id="mainsel" value={app.project?.main} onchange={(e) => app.setMain((e.currentTarget as HTMLSelectElement).value)}>
+          {#each app.project?.roots ?? [] as r (r)}<option value={r}>{r}</option>{/each}
+        </select>
+      </div>
+    {/if}
     {#if app.index}
       <div class="progress">
         <div class="muted pr"><span>全文 {words} 字</span><span>目标 {target.toLocaleString()}</span></div>
@@ -183,6 +191,23 @@
   }
   .progress {
     padding: 0 12px 10px;
+  }
+  .main-pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px 10px;
+    font-size: 12px;
+  }
+  .main-pick select {
+    flex: 1;
+    min-width: 0;
+    height: 26px;
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
   }
   .pr {
     display: flex;

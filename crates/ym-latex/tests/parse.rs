@@ -135,3 +135,38 @@ fn sample_paper_project() {
     assert!(fig.references.is_empty());
     assert_eq!(names(&p.files[0].bib_files), ["refs"]);
 }
+
+#[test]
+fn main_detection_in_multi_document_folder() {
+    // 模拟期刊投稿目录：正文、补充材料、标题页、亮点都是独立文档
+    let dir = std::env::temp_dir().join(format!("ym-roots-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let doc = |body: &str| {
+        format!("\\documentclass{{article}}\n\\begin{{document}}\n{body}\n\\end{{document}}\n")
+    };
+    std::fs::write(dir.join("Highlights.tex"), doc("short")).unwrap();
+    std::fs::write(dir.join("title_page.tex"), doc("title")).unwrap();
+    std::fs::write(
+        dir.join("supplement.tex"),
+        doc(&"long supplement text ".repeat(200)),
+    )
+    .unwrap();
+    std::fs::write(dir.join("manuscript.tex"), doc("\\section{Intro} text")).unwrap();
+    std::fs::write(dir.join("notes.tex"), "% 不是独立文档\n").unwrap();
+
+    let roots = ym_latex::find_roots(&dir);
+    assert_eq!(roots.len(), 4, "{roots:?}");
+    assert_eq!(
+        ym_latex::find_main(&dir).unwrap(),
+        PathBuf::from("manuscript.tex")
+    );
+
+    // 没有常见主文件名时取篇幅最长、且不像附属文档的那个
+    std::fs::remove_file(dir.join("manuscript.tex")).unwrap();
+    std::fs::write(dir.join("chapter-draft.tex"), doc(&"draft ".repeat(50))).unwrap();
+    assert_eq!(
+        ym_latex::find_main(&dir).unwrap(),
+        PathBuf::from("chapter-draft.tex")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

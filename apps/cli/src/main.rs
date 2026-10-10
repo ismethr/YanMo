@@ -38,6 +38,12 @@ enum Cmd {
         #[arg(long)]
         strict: bool,
     },
+    /// 用 Pandoc 导出为 Word（.docx）；先编译可让交叉引用显示为编号
+    Export {
+        /// 输出路径，相对项目根目录（默认 .yanmo/export/<主文件名>.docx）
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
     /// 通过 DOI / arXiv ID 导入文献
     BibImport { id: String },
     /// 执行命令注册表中的任意命令，例如 `ym exec project.index`；不带 ID 时列出所有命令
@@ -137,6 +143,9 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             };
             let mut ws = ym_commands::Workspace::default();
             ws.open(root)?;
+            if let Some(m) = &cli.main {
+                ws.set_main(m, false)?;
+            }
             let params = match params {
                 Some(p) => serde_json::from_str(&p).context("参数不是合法 JSON")?,
                 None => serde_json::Value::Null,
@@ -144,10 +153,52 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             print_json(&registry.execute(&mut ws, &id, params)?)?;
             Ok(ExitCode::SUCCESS)
         }
+        Cmd::Export { output } => {
+            let registry = ym_commands::Registry::with_builtins();
+            let mut ws = ym_commands::Workspace::default();
+            ws.open(root)?;
+            if let Some(m) = &cli.main {
+                ws.set_main(m, false)?;
+            }
+            let out = registry.execute(
+                &mut ws,
+                "export.docx",
+                serde_json::json!({ "output": output }),
+            )?;
+            if cli.json {
+                print_json(&out)?;
+            } else {
+                for w in out["warnings"].as_array().into_iter().flatten() {
+                    println!("{}", w.as_str().unwrap_or(""));
+                }
+                for m in out["figures_missing"].as_array().into_iter().flatten() {
+                    println!(
+                        "⚠ 图片未能转换，Word 中会缺失：{}",
+                        m.as_str().unwrap_or("")
+                    );
+                }
+                if out["numbered_refs"] != true {
+                    println!(
+                        "⚠ 没有找到编译生成的 .aux，交叉引用会显示为标签名；先运行 ym compile"
+                    );
+                }
+                let secs = out["duration_ms"].as_u64().unwrap_or(0) as f64 / 1000.0;
+                println!(
+                    "\n✓ 已导出 {}（{} 个引用编号，转换 {} 张图片，{secs:.1}s）",
+                    out["path"].as_str().unwrap_or(""),
+                    out["labels"],
+                    out["figures_converted"]
+                );
+            }
+            Ok(ExitCode::SUCCESS)
+        }
         Cmd::Compile { engine } => {
             let registry = ym_commands::Registry::with_builtins();
             let mut ws = ym_commands::Workspace::default();
             ws.open(root)?;
+            if let Some(m) = &cli.main {
+                ws.set_main(m, false)?;
+            }
             let params = serde_json::json!({ "engine": engine });
             let out = registry.execute(&mut ws, "compile.run", params)?;
             if cli.json {

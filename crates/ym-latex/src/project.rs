@@ -8,6 +8,9 @@ use ym_model::{Asset, Section, SectionLevel, SourceSpan};
 
 use crate::{parse_file, FileIndex, FlowItem, Heading, Located};
 
+/// `\includegraphics` 省略扩展名时依次尝试的扩展名。
+pub const GRAPHIC_EXTS: &[&str] = &["pdf", "png", "jpg", "jpeg", "eps", "PDF", "PNG", "JPG"];
+
 #[derive(Debug, Serialize)]
 pub struct ProjectIndex {
     pub root: PathBuf,
@@ -62,6 +65,28 @@ impl ProjectIndex {
             .map(String::as_str)
     }
 
+    /// `\includegraphics{name}` 实际对应的项目内文件（相对 `root`）：依次在主文件目录与
+    /// `\graphicspath` 中查找，省略扩展名时按 pdfLaTeX/XeLaTeX 的默认顺序补全。
+    pub fn resolve_graphic(&self, name: &str) -> Option<PathBuf> {
+        let base = self.base_dir();
+        let dirs = std::iter::once(PathBuf::new()).chain(self.graphics_paths().map(PathBuf::from));
+        for dir in dirs {
+            let p = base.join(dir).join(name);
+            let mut candidates = vec![p.clone()];
+            if p.extension().is_none() {
+                candidates.extend(GRAPHIC_EXTS.iter().map(|e| p.with_extension(e)));
+            }
+            if let Some(found) = candidates
+                .into_iter()
+                .map(|c| normalize(&c))
+                .find(|c| self.root.join(c).is_file())
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+
     pub fn assets(&self) -> impl Iterator<Item = &Asset> {
         self.files.iter().flat_map(|f| &f.assets)
     }
@@ -78,45 +103,83 @@ impl ProjectIndex {
     }
 }
 
-/// 在项目根目录（及一级子目录）中寻找主文件：优先 `main.tex`，其次任何含 `\documentclass` 的文件。
-pub fn find_main(root: &Path) -> Option<PathBuf> {
+/// 一个目录里可以有多个独立文档（正文、补充材料、标题页……），全部列出，相对 `root`。
+/// 只看根目录；根目录没有时再看一级子目录。
+pub fn find_roots(root: &Path) -> Vec<PathBuf> {
     let is_root_doc = |p: &Path| {
         fs::read_to_string(p).is_ok_and(|s| {
             s.lines()
                 .any(|l| l.trim_start().starts_with("\\documentclass"))
         })
     };
-    let mut candidates: Vec<PathBuf> = Vec::new();
-    let mut dirs = vec![root.to_path_buf()];
-    if let Ok(entries) = fs::read_dir(root) {
-        let mut subdirs: Vec<_> = entries
-            .flatten()
-            .map(|e| e.path())
-            .filter(|p| p.is_dir() && !is_hidden(p))
-            .collect();
-        subdirs.sort();
-        dirs.extend(subdirs);
-    }
-    for dir in dirs {
-        let Ok(entries) = fs::read_dir(&dir) else {
-            continue;
+    let list = |dir: &Path| -> Vec<PathBuf> {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return Vec::new();
         };
         let mut files: Vec<_> = entries
             .flatten()
             .map(|e| e.path())
             .filter(|p| p.extension().is_some_and(|e| e == "tex") && is_root_doc(p))
+            .filter_map(|p| p.strip_prefix(root).ok().map(Path::to_path_buf))
             .collect();
         files.sort();
-        candidates.extend(files);
-        if !candidates.is_empty() {
-            break; // 根目录有就不看子目录
-        }
+        files
+    };
+    let found = list(root);
+    if !found.is_empty() {
+        return found;
     }
-    let pick = candidates
-        .iter()
-        .find(|p| p.file_name().is_some_and(|n| n == "main.tex"))
-        .or(candidates.first())?;
-    pick.strip_prefix(root).ok().map(Path::to_path_buf)
+    let mut subdirs: Vec<PathBuf> = fs::read_dir(root)
+        .map(|e| {
+            e.flatten()
+                .map(|e| e.path())
+                .filter(|p| p.is_dir() && !is_hidden(p))
+                .collect()
+        })
+        .unwrap_or_default();
+    subdirs.sort();
+    subdirs.iter().flat_map(|d| list(d)).collect()
+}
+
+/// 在多个独立文档中挑出主文件：常见的主文件名优先（main / manuscript / paper / thesis …），
+/// 其次是篇幅最长的文档；标题页、亮点、补充材料、cover letter 之类排在后面。
+pub fn find_main(root: &Path) -> Option<PathBuf> {
+    const PREFERRED: &[&str] = &[
+        "main",
+        "manuscript",
+        "paper",
+        "thesis",
+        "article",
+        "dissertation",
+    ];
+    const SECONDARY: &[&str] = &[
+        "supplement",
+        "appendix",
+        "title",
+        "highlight",
+        "cover",
+        "letter",
+        "response",
+        "rebuttal",
+    ];
+    let score = |p: &PathBuf| {
+        let stem = p
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        let size = fs::metadata(root.join(p)).map(|m| m.len()).unwrap_or(0);
+        let rank = if PREFERRED.contains(&stem.as_str()) {
+            3
+        } else if PREFERRED.iter().any(|n| stem.starts_with(n)) {
+            2
+        } else if SECONDARY.iter().any(|n| stem.contains(n)) {
+            0
+        } else {
+            1
+        };
+        (rank, size)
+    };
+    find_roots(root).into_iter().max_by_key(score)
 }
 
 fn is_hidden(p: &Path) -> bool {

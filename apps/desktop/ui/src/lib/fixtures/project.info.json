@@ -1,5 +1,8 @@
 {
   "main": "main.tex",
   "name": "sample-paper",
-  "root": "examples/sample-paper"
+  "root": "examples/sample-paper",
+  "roots": [
+    "main.tex"
+  ]
 }

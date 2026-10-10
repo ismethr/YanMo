@@ -8,7 +8,7 @@ use ym_latex::ProjectIndex;
 use ym_model::{AssetKind, BibEntry, SourceSpan};
 
 /// `\includegraphics` 省略扩展名时依次尝试的扩展名（与 pdfLaTeX/XeLaTeX 默认顺序一致）。
-const GRAPHIC_EXTS: &[&str] = &["pdf", "png", "jpg", "jpeg", "eps", "PDF", "PNG", "JPG"];
+use ym_latex::GRAPHIC_EXTS;
 /// 未指定 `\graphicspath` 时也会检查的常见图片目录。
 const COMMON_FIGURE_DIRS: &[&str] = &["figures", "figure", "figs", "fig", "images", "img"];
 
@@ -159,7 +159,7 @@ impl Report {
 /// 读取文献并执行全部检查。
 pub fn run(project: &ProjectIndex) -> Report {
     let (mut bib, mut issues) = load_bib(project);
-    issues.extend(check(project, &bib));
+    issues.extend(check_with(project, &bib, &SiblingUsage::collect(project)));
     attach_citations(project, &mut bib);
     issues.sort_by(|a, b| (a.severity(), a.location()).cmp(&(b.severity(), b.location())));
     Report { issues, bib }
@@ -201,6 +201,59 @@ pub fn load_bib(project: &ProjectIndex) -> (Vec<BibEntry>, Vec<Issue>) {
 
 /// 纯逻辑检查（图片相关检查会访问文件系统）。
 pub fn check(project: &ProjectIndex, bib: &[BibEntry]) -> Vec<Issue> {
+    check_with(project, bib, &SiblingUsage::default())
+}
+
+/// 同一目录下其他独立文档（补充材料、标题页等）的用法。
+/// 它们与主文档共用图片目录和 .bib，判断"未使用"时要一并考虑。
+#[derive(Debug, Default)]
+pub struct SiblingUsage {
+    pub cites: HashSet<String>,
+    pub nocite_all: bool,
+    /// 图片文件的比较键，见 [`file_key`]
+    pub graphics: HashSet<String>,
+    /// 参与统计的文档，相对项目根目录
+    pub documents: Vec<PathBuf>,
+}
+
+impl SiblingUsage {
+    /// 索引项目根目录中除主文件外的其他独立文档。
+    pub fn collect(project: &ProjectIndex) -> Self {
+        let mut usage = SiblingUsage::default();
+        for doc in ym_latex::find_roots(&project.root) {
+            if doc == project.main {
+                continue;
+            }
+            let Ok(other) = ym_latex::index_project(&project.root, &doc) else {
+                continue;
+            };
+            usage.cites.extend(other.cites().map(|c| c.name.clone()));
+            usage.nocite_all |= other.nocite_all();
+            for (_, found) in resolve_graphics(&other) {
+                if let Some(p) = found {
+                    usage.graphics.insert(file_key(&project.root, &p));
+                }
+            }
+            usage.documents.push(doc);
+        }
+        usage
+    }
+}
+
+/// 文件的比较键：macOS 与 Windows 的文件系统默认不区分大小写，
+/// `Figures/a.pdf` 与 `figures/a.pdf` 是同一个文件。
+pub fn file_key(root: &Path, rel: &Path) -> String {
+    let abs = root.join(rel);
+    let p = abs.canonicalize().unwrap_or(abs);
+    let s = p.to_string_lossy().into_owned();
+    if cfg!(any(target_os = "macos", windows)) {
+        s.to_lowercase()
+    } else {
+        s
+    }
+}
+
+pub fn check_with(project: &ProjectIndex, bib: &[BibEntry], siblings: &SiblingUsage) -> Vec<Issue> {
     let mut issues = Vec::new();
 
     // ---- label / ref ----
@@ -260,7 +313,8 @@ pub fn check(project: &ProjectIndex, bib: &[BibEntry]) -> Vec<Issue> {
                 at: at.clone(),
             });
         }
-        if !project.nocite_all() && !cited.contains(key) {
+        let used_elsewhere = siblings.nocite_all || siblings.cites.contains(*key);
+        if !project.nocite_all() && !cited.contains(key) && !used_elsewhere {
             issues.push(Issue::UnusedBibEntry {
                 key: key.to_string(),
                 at: at[0].clone(),
@@ -275,62 +329,71 @@ pub fn check(project: &ProjectIndex, bib: &[BibEntry]) -> Vec<Issue> {
             at: inc.span.clone(),
         });
     }
-    issues.extend(check_graphics(project));
+    issues.extend(check_graphics(project, siblings));
     issues
 }
 
-fn check_graphics(project: &ProjectIndex) -> Vec<Issue> {
-    let base = project.base_dir();
-    let search_dirs: Vec<PathBuf> = std::iter::once(PathBuf::new())
-        .chain(project.graphics_paths().map(PathBuf::from))
-        .map(|d| normalize(&base.join(d)))
-        .collect();
+/// 解析每条 `\includegraphics` 实际对应的文件（相对项目根目录）。
+fn resolve_graphics(project: &ProjectIndex) -> Vec<(&ym_latex::Located, Option<PathBuf>)> {
+    project
+        .graphics()
+        .map(|g| (g, project.resolve_graphic(&g.name)))
+        .collect()
+}
 
+fn check_graphics(project: &ProjectIndex, siblings: &SiblingUsage) -> Vec<Issue> {
+    let base = project.base_dir();
     let mut issues = Vec::new();
-    let mut used: HashSet<PathBuf> = HashSet::new();
-    for g in project.graphics() {
-        let target = Path::new(&g.name);
-        let found = search_dirs.iter().find_map(|dir| {
-            let p = dir.join(target);
-            let mut candidates = vec![p.clone()];
-            if p.extension().is_none() {
-                candidates.extend(GRAPHIC_EXTS.iter().map(|e| p.with_extension(e)));
-            }
-            candidates
-                .into_iter()
-                .map(|c| normalize(&c))
-                .find(|c| project.root.join(c).is_file())
-        });
+    let mut used: Vec<PathBuf> = Vec::new();
+    for (g, found) in resolve_graphics(project) {
         match found {
-            Some(p) => {
-                used.insert(p);
-            }
+            Some(p) => used.push(p),
             None => issues.push(Issue::MissingFile {
                 path: g.name.clone(),
                 at: g.span.clone(),
             }),
         }
     }
+    let mut used_keys: HashSet<String> = used.iter().map(|p| file_key(&project.root, p)).collect();
+    used_keys.extend(siblings.graphics.iter().cloned());
 
-    // 图片目录：\graphicspath、已使用图片所在目录、常见目录名
-    let mut dirs: HashSet<PathBuf> = search_dirs.into_iter().skip(1).collect();
-    dirs.extend(
+    // 图片目录：\graphicspath、已使用图片所在目录、常见目录名；按实际目录去重（不区分大小写的文件系统上
+    // Figures/ 与 figures/ 是同一个目录）
+    let mut candidates: Vec<PathBuf> = project
+        .graphics_paths()
+        .map(|d| normalize(&base.join(d)))
+        .collect();
+    candidates.extend(
         used.iter()
             .filter_map(|p| p.parent().map(Path::to_path_buf)),
     );
-    dirs.extend(COMMON_FIGURE_DIRS.iter().map(|d| normalize(&base.join(d))));
-    dirs.retain(|d| !d.as_os_str().is_empty() && project.root.join(d).is_dir());
+    candidates.extend(COMMON_FIGURE_DIRS.iter().map(|d| normalize(&base.join(d))));
+    let mut seen = HashSet::new();
+    let dirs: Vec<PathBuf> = candidates
+        .into_iter()
+        .filter(|d| !d.as_os_str().is_empty() && project.root.join(d).is_dir())
+        .filter(|d| seen.insert(file_key(&project.root, d)))
+        .collect();
+
+    // 同目录同名、仅扩展名不同的文件视为同一张图的其他格式（如给 Word 准备的 PNG/SVG），不提示
+    let stem_key = |k: &str| match k.rfind('.') {
+        Some(i) if !k[i..].contains('/') => k[..i].to_owned(),
+        _ => k.to_owned(),
+    };
+    let used_stems: HashSet<String> = used_keys.iter().map(|k| stem_key(k)).collect();
 
     let mut unused: Vec<PathBuf> = Vec::new();
+    let mut reported = HashSet::new();
     for dir in &dirs {
         collect_images(&project.root, dir, 3, &mut |p| {
-            if !used.contains(&p) {
+            let key = file_key(&project.root, &p);
+            let variant = used_stems.contains(&stem_key(&key));
+            if !used_keys.contains(&key) && !variant && reported.insert(key) {
                 unused.push(p);
             }
         });
     }
     unused.sort();
-    unused.dedup();
     issues.extend(
         unused
             .into_iter()
@@ -437,5 +500,51 @@ mod tests {
             .find(|e| e.key == "vaswani2017attention")
             .unwrap();
         assert_eq!(vaswani.citations.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod sibling_tests {
+    use super::*;
+
+    #[test]
+    fn usage_in_sibling_documents_is_not_reported_as_unused() {
+        let dir = std::env::temp_dir().join(format!("ym-siblings-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("Figures")).unwrap();
+        for f in ["main.pdf", "suppl.pdf", "main.png", "orphan.pdf"] {
+            std::fs::write(dir.join("Figures").join(f), b"x").unwrap();
+        }
+        std::fs::write(
+            dir.join("refs.bib"),
+            "@article{a,title={A}}\n@article{b,title={B}}\n@article{c,title={C}}\n",
+        )
+        .unwrap();
+        let doc = |body: &str| {
+            format!("\\documentclass{{article}}\n\\begin{{document}}\n{body}\n\\bibliography{{refs}}\n\\end{{document}}\n")
+        };
+        std::fs::write(
+            dir.join("manuscript.tex"),
+            doc("\\cite{a}\\includegraphics{Figures/main.pdf}"),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("supplement.tex"),
+            // 不区分大小写的文件系统上用小写目录名，验证 Figures/ 与 figures/ 被视为同一目录
+            doc(if cfg!(any(target_os = "macos", windows)) {
+                "\\cite{b}\\includegraphics{figures/suppl.pdf}"
+            } else {
+                "\\cite{b}\\includegraphics{Figures/suppl.pdf}"
+            }),
+        )
+        .unwrap();
+
+        let project = ym_latex::index_project(&dir, Path::new("manuscript.tex")).unwrap();
+        let report = run(&project);
+        let found: Vec<String> = report.issues.iter().map(|i| i.message()).collect();
+        // b 被补充材料引用、suppl.pdf 被补充材料使用（大小写不同的目录名）、main.png 是 main.pdf 的另一格式
+        assert_eq!(found.len(), 2, "{found:#?}");
+        assert!(found.iter().any(|m| m.contains("`c`")));
+        assert!(found.iter().any(|m| m.contains("orphan.pdf")));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

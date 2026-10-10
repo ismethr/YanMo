@@ -29,6 +29,19 @@ pub(crate) fn register(r: &mut Registry) {
         project_index,
     );
     r.register(
+        meta("project.set_main", "设为主文件", path_param.clone(), false),
+        project_set_main,
+    );
+    r.register(
+        meta(
+            "export.docx",
+            "导出为 Word（Pandoc）",
+            json!({"type": "object", "properties": {"output": {"type": "string", "description": "相对项目根目录，默认 .yanmo/export/<主文件名>.docx"}}}),
+            false,
+        ),
+        export_docx,
+    );
+    r.register(
         meta("check.run", "检查项目问题", none.clone(), false),
         check_run,
     );
@@ -124,6 +137,7 @@ fn project_info(ws: &mut Workspace, _: Value) -> CommandResult {
         "root": root,
         "name": root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         "main": ws.main(),
+        "roots": ym_latex::find_roots(root),
     }))
 }
 
@@ -211,6 +225,12 @@ fn walk(root: &Path, rel: &Path, depth: u32) -> Vec<TreeNode> {
     nodes
 }
 
+fn project_set_main(ws: &mut Workspace, p: Value) -> CommandResult {
+    let PathParam { path } = params(p)?;
+    ws.set_main(Path::new(&path), true)?;
+    project_info(ws, Value::Null)
+}
+
 fn project_tree(ws: &mut Workspace, _: Value) -> CommandResult {
     let root = ws.root()?.to_path_buf();
     to_value(&walk(&root, Path::new(""), 6))
@@ -287,6 +307,21 @@ fn compile_run(ws: &mut Workspace, p: Value) -> CommandResult {
     let job = ws.compile_job(engine)?;
     let out = job.run()?;
     ws.finish_compile(out.clone());
+    to_value(&out)
+}
+
+#[derive(Deserialize, Default)]
+struct ExportParam {
+    output: Option<PathBuf>,
+}
+
+fn export_docx(ws: &mut Workspace, p: Value) -> CommandResult {
+    let ExportParam { output } = if p.is_null() {
+        ExportParam::default()
+    } else {
+        params(p)?
+    };
+    let out = ws.export_job(output)?.run()?;
     to_value(&out)
 }
 

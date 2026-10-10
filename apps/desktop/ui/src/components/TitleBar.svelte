@@ -17,6 +17,9 @@
     <button class="btn btn-pri" disabled={!app.project} onclick={() => app.compile()} title="编译（⌘B）">
       <Icon name="play" size={12} fill />{app.compiling ? '编译中…' : '编译'}
     </button>
+    <button class="btn" disabled={!app.project || app.exporting} onclick={() => app.exportDocx()} title="用 Pandoc 导出为 Word（.docx）">
+      <Icon name="word" size={14} />{app.exporting ? '导出中…' : 'Word'}
+    </button>
     <button class="btn" onclick={() => (app.aiOpen = !app.aiOpen)} aria-pressed={app.aiOpen}>
       <Icon name="sparkle" size={14} />AI
     </button>
@@ -39,7 +42,7 @@
     align-items: center;
     gap: 8px;
     font-weight: 600;
-    width: 220px;
+    width: 300px;
   }
   .center {
     flex: 1 1 280px;
@@ -66,7 +69,7 @@
   .actions {
     display: flex;
     gap: 8px;
-    width: 220px;
+    width: 300px;
     justify-content: flex-end;
   }
   .btn[disabled] {

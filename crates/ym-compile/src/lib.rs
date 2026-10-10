@@ -7,6 +7,7 @@
 //!
 //! 输出统一放在项目的 `.yanmo/build/`，不污染源码目录。
 
+pub mod export;
 pub mod log;
 pub mod synctex;
 
@@ -16,6 +17,7 @@ use std::process::Command;
 use std::time::{Instant, SystemTime};
 use ym_model::Engine;
 
+pub use export::{ExportOutput, ExportRequest, EXPORT_DIR};
 pub use log::Severity;
 pub use synctex::{PdfRect, SourceLocation, SyncTex};
 
@@ -26,6 +28,10 @@ pub const BUILD_DIR: &str = ".yanmo/build";
 pub struct Toolchain {
     pub tectonic: Option<PathBuf>,
     pub latexmk: Option<PathBuf>,
+    /// 导出 Word
+    pub pandoc: Option<PathBuf>,
+    /// 导出 Word 时把 PDF/EPS 图片转为 PNG（MacTeX 与 TeX Live 通常自带）
+    pub ghostscript: Option<PathBuf>,
 }
 
 fn home() -> Option<PathBuf> {
@@ -48,6 +54,9 @@ fn which(name: &str) -> Option<PathBuf> {
     let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
         .map(|p| std::env::split_paths(&p).collect())
         .unwrap_or_default();
+    if let Some(h) = home() {
+        dirs.extend([h.join(".local/bin"), h.join(".cargo/bin")]);
+    }
     dirs.extend(
         [
             "/Library/TeX/texbin",
@@ -81,6 +90,8 @@ impl Toolchain {
         Self {
             tectonic,
             latexmk: which("latexmk"),
+            pandoc: which("pandoc"),
+            ghostscript: which(if cfg!(windows) { "gswin64c" } else { "gs" }),
         }
     }
 }
@@ -122,6 +133,10 @@ pub enum CompileError {
     NoEngine,
     #[error("所选引擎不可用：{0:?}")]
     EngineUnavailable(Engine),
+    #[error("没有找到 Pandoc：请从 https://pandoc.org/installing.html 安装后重试")]
+    NoPandoc,
+    #[error("Pandoc 转换失败：{0}")]
+    Pandoc(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
@@ -236,7 +251,14 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
             .arg(&file)
             .arg("--outdir")
             .arg(&out_dir)
-            .args(["--synctex", "--keep-logs", "-Z", "continue-on-errors"])
+            // 保留 .aux：导出 Word 时用它把交叉引用替换为真实编号
+            .args([
+                "--synctex",
+                "--keep-logs",
+                "--keep-intermediates",
+                "-Z",
+                "continue-on-errors",
+            ])
             .current_dir(&cwd)
             .output()?,
         _ => {
@@ -358,10 +380,12 @@ mod tests {
         let both = Toolchain {
             tectonic: Some("t".into()),
             latexmk: Some("l".into()),
+            ..Default::default()
         };
         let only_tex = Toolchain {
             tectonic: None,
             latexmk: Some("l".into()),
+            ..Default::default()
         };
         let none = Toolchain::default();
         assert_eq!(

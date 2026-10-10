@@ -17,6 +17,7 @@
     { id: 'file.save', title: '保存当前文件', key: '⌘S', run: () => app.saveActive() },
     { id: 'compile.run', title: '编译论文', key: '⌘B', run: () => app.compile() },
     { id: 'synctex.forward', title: '在 PDF 中定位当前行', key: '⌥⌘J', run: () => app.forwardSync() },
+    { id: 'export.docx', title: '导出为 Word（.docx）', run: () => app.exportDocx() },
     { id: 'compile.auto', title: '切换：保存后自动编译', run: () => { app.autoCompile = !app.autoCompile; app.flash(app.autoCompile ? '已开启保存后自动编译' : '已关闭保存后自动编译'); } },
     { id: 'check.run', title: '重新检查项目', run: () => { app.bottom = 'problems'; void app.refresh(); } },
     { id: 'view.outline', title: '显示大纲', run: () => (app.activity = 'outline') },

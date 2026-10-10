@@ -14,7 +14,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use ym_model::{Asset, SectionLevel, SourceSpan};
 
-pub use project::{find_main, index_project, ProjectIndex};
+pub use project::{find_main, find_roots, index_project, ProjectIndex, GRAPHIC_EXTS};
 
 /// 带源码位置的名字（label 名、bib key、文件路径等）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

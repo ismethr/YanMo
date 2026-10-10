@@ -6,6 +6,7 @@ mod bridge;
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(bridge::AppState::default())
         .invoke_handler(tauri::generate_handler![
             bridge::execute,

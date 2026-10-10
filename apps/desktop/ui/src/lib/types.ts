@@ -30,6 +30,8 @@ export interface ProjectInfo {
   root: string;
   name: string;
   main: string | null;
+  /** 目录中所有独立文档（含 \documentclass），相对项目根目录 */
+  roots: string[];
 }
 
 export interface TreeNode {
@@ -101,6 +103,20 @@ export interface CompileOutput {
 export interface Toolchain {
   tectonic: string | null;
   latexmk: string | null;
+  pandoc: string | null;
+  ghostscript: string | null;
+}
+
+export interface ExportOutput {
+  path: string;
+  duration_ms: number;
+  numbered_refs: boolean;
+  labels: number;
+  figures_converted: number;
+  figures_missing: string[];
+  csl: string | null;
+  reference_doc: string | null;
+  warnings: string[];
 }
 
 /** PDF 坐标（点），原点在页面左上角 */

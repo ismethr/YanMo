@@ -13,6 +13,7 @@
     chevronDown: 'M6 9l6 6 6-6',
     folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
     close: 'M6 6l12 12M18 6L6 18',
+    word: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M8 12l1.5 6 2.5-5 2.5 5 1.5-6',
     pdf: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M8 13h8M8 17h5',
   };
   let { name, size = 16, fill = false }: { name: string; size?: number; fill?: boolean } = $props();

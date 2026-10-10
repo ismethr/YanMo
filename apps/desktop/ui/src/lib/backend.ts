@@ -29,6 +29,13 @@ export async function listCommands(): Promise<CommandMeta[]> {
   ];
 }
 
+/** 在访达 / 资源管理器中显示文件（仅桌面端）。 */
+export async function revealInFolder(absPath: string): Promise<void> {
+  if (!inTauri) return;
+  const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+  await revealItemInDir(absPath);
+}
+
 /** 命令行启动参数中的项目文件夹（仅桌面端）。 */
 export async function launchFolder(): Promise<string | null> {
   return inTauri ? invoke<string | null>('launch_folder') : null;
@@ -67,7 +74,11 @@ function preview(id: string, params: Record<string, unknown>): unknown {
     case 'compile.pdf':
       return compilePdf;
     case 'compile.toolchain':
-      return { tectonic: 'tectonic', latexmk: null };
+      return { tectonic: 'tectonic', latexmk: null, pandoc: 'pandoc', ghostscript: null };
+    case 'project.set_main':
+      return { ...info, main: path };
+    case 'export.docx':
+      throw new Error('浏览器预览模式不支持导出 Word，请在桌面应用中使用');
     case 'synctex.forward':
     case 'synctex.inverse':
       return null; // 预览模式没有 SyncTeX 数据

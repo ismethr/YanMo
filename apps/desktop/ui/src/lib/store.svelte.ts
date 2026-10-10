@@ -1,9 +1,10 @@
 // 应用状态（Svelte 5 runes）。所有对项目的读写都经由 backend.execute，即 Rust 命令注册表。
 
-import { execute, pickFolder } from './backend';
+import { execute, pickFolder, revealInFolder } from './backend';
 import type {
   CheckResult,
   CompileOutput,
+  ExportOutput,
   Issue,
   PdfRect,
   ProjectIndex,
@@ -49,7 +50,7 @@ class AppState {
   cursor = $state({ line: 1, col: 1 });
   /** 编辑器跳转请求；n 递增以便重复跳到同一行 */
   reveal = $state<{ path: string; line: number; n: number } | null>(null);
-  notice = $state<string | null>(null);
+  notice = $state<{ text: string; action?: { label: string; run: () => void } } | null>(null);
   recent = $state<string[]>(loadRecent());
 
   // 编译与 PDF
@@ -61,6 +62,8 @@ class AppState {
   /** 正向同步的目标区域；n 递增以便重复定位 */
   syncTarget = $state<(PdfRect & { n: number }) | null>(null);
   autoCompile = $state(true);
+  exporting = $state(false);
+  lastExport = $state<ExportOutput | null>(null);
   #compileAgain = false;
 
   #timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -82,11 +85,12 @@ class AppState {
     return this.check?.issues.filter((i) => i.file === path) ?? [];
   }
 
-  flash(msg: string) {
-    this.notice = msg;
+  flash(text: string, action?: { label: string; run: () => void }) {
+    const notice = { text, action };
+    this.notice = notice;
     setTimeout(() => {
-      if (this.notice === msg) this.notice = null;
-    }, 4000);
+      if (this.notice === notice) this.notice = null;
+    }, action ? 8000 : 4000);
   }
 
   async openFolder(path?: string) {
@@ -246,6 +250,45 @@ class AppState {
       if (loc) await this.openFile(loc.file, loc.line);
     } catch (e) {
       this.flash(String(e));
+    }
+  }
+
+  /** 切换主文件（写入 .yanmo/project.toml），并重新索引、清空旧的编译结果。 */
+  async setMain(path: string) {
+    if (!this.project || path === this.project.main) return;
+    try {
+      this.project = await execute<ProjectInfo>('project.set_main', { path });
+    } catch (e) {
+      this.flash(String(e));
+      return;
+    }
+    this.lastCompile = null;
+    this.pdf = null;
+    this.syncTarget = null;
+    await this.refresh();
+    await this.openFile(path);
+    await this.loadPdf(true);
+  }
+
+  /** 用 Pandoc 导出 Word。先编译过才能把交叉引用替换为编号。 */
+  async exportDocx() {
+    if (!this.project || this.exporting) return;
+    this.exporting = true;
+    try {
+      const out = await execute<ExportOutput>('export.docx');
+      this.lastExport = out;
+      const notes: string[] = [];
+      if (!out.numbered_refs) notes.push('交叉引用未编号（请先编译）');
+      if (out.figures_missing.length) notes.push(`${out.figures_missing.length} 张图片未能转换`);
+      const abs = `${this.project.root}/${out.path}`;
+      this.flash(`已导出 ${out.path}${notes.length ? `；${notes.join('，')}` : ''}`, {
+        label: '在访达中显示',
+        run: () => void revealInFolder(abs),
+      });
+    } catch (e) {
+      this.flash(String(e));
+    } finally {
+      this.exporting = false;
     }
   }
 }
