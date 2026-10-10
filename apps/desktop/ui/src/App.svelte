@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { app } from './lib/store.svelte';
+  import { inTauri } from './lib/backend';
   import TitleBar from './components/TitleBar.svelte';
   import ActivityBar from './components/ActivityBar.svelte';
   import Sidebar from './components/Sidebar.svelte';
@@ -9,6 +11,13 @@
   import StatusBar from './components/StatusBar.svelte';
   import Welcome from './components/Welcome.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
+
+  // 浏览器预览的演示模式：?demo 自动打开示例论文（用于截图与官网）
+  onMount(async () => {
+    if (inTauri || !new URLSearchParams(location.search).has('demo')) return;
+    await app.openFolder();
+    await app.openFile('sections/intro.tex', 3);
+  });
 
   function onKey(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { app, PDF_TAB } from '../lib/store.svelte';
   import { inTauri } from '../lib/backend';
+
+  const demo = !inTauri && new URLSearchParams(location.search).has('demo');
 </script>
 
 <footer>
@@ -10,7 +12,7 @@
     </button>
     <span>Tectonic · XeLaTeX</span>
   {/if}
-  {#if !inTauri}<span class="preview">浏览器预览模式 · 示例数据</span>{/if}
+  {#if !inTauri && !demo}<span class="preview">浏览器预览模式 · 示例数据</span>{/if}
   <span class="grow"></span>
   {#if app.active && app.active !== PDF_TAB}
     <span>行 {app.cursor.line}，列 {app.cursor.col}</span>

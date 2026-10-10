@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>研墨 YanMo — 本地优先的 AI LaTeX 论文工作台</title>
+<meta name="description" content="研墨 YanMo 是开源、本地优先的 LaTeX 论文写作与编译桌面应用：清晰的论文结构、图表与文献管理，以及每一处修改都可控的 AI 辅助。">
+<link rel="canonical" href="https://yanmo.ink/">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta property="og:title" content="研墨 YanMo — 本地优先的 AI LaTeX 论文工作台">
+<meta property="og:description" content="开源的 LaTeX 论文写作与编译桌面应用：结构清晰，引用可靠，修改可控。">
+<meta property="og:image" content="https://yanmo.ink/assets/icon-512.png">
+<meta property="og:url" content="https://yanmo.ink/">
+<meta name="theme-color" content="#fbfbfa">
+<style>
+:root {
+  --bg: #fbfbfa;
+  --bg2: #f3f2ef;
+  --card: #ffffff;
+  --line: #e4e2dd;
+  --fg: #18181b;
+  --fg2: #52565f;
+  --ink: #1c1c20;
+  --ink-fg: #ffffff;
+  --term: #17171a;
+  --term-fg: #e6e6ea;
+  --ok: #2b7a4b;
+  --err: #c62f2a;
+  --warn: #9a5c00;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI", sans-serif;
+  --mono: "SF Mono", Menlo, Consolas, "JetBrains Mono", "PingFang SC", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121214;
+    --bg2: #18181b;
+    --card: #1c1c20;
+    --line: #2c2c32;
+    --fg: #ececef;
+    --fg2: #a3a6ae;
+    --ink: #ececef;
+    --ink-fg: #121214;
+    --term: #0b0b0d;
+    --ok: #5fb98a;
+    --err: #f2665f;
+    --warn: #e8a23a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+/* 导航 */
+nav.top {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+nav.top .wrap { display: flex; align-items: center; gap: 28px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; text-decoration: none; letter-spacing: .01em; }
+.brand img { width: 30px; height: 30px; }
+nav.top .links { display: flex; gap: 24px; margin-left: auto; font-size: 15px; color: var(--fg2); }
+nav.top .links a { text-decoration: none; }
+nav.top .links a:hover { color: var(--fg); }
+
+/* 首屏 */
+.hero { text-align: center; padding-top: 88px; padding-bottom: 56px; }
+.hero img.logo { width: 112px; height: 112px; }
+.pill {
+  display: inline-block; margin-top: 18px; padding: 3px 12px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--fg2); font-size: 13px;
+}
+.hero h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1.15; margin: 18px 0 8px; font-weight: 700; letter-spacing: -.01em; }
+.hero h1 span { color: var(--fg2); font-weight: 500; }
+.hero .lead { font-size: clamp(19px, 2.4vw, 24px); margin: 0 0 10px; font-weight: 500; }
+.hero .sub { max-width: 640px; margin: 0 auto; color: var(--fg2); }
+.cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; max-width: 100%; padding: 10px 22px; border-radius: 12px; text-align: center; line-height: 1.35;
+  font-size: 16px; font-weight: 500; text-decoration: none; border: 1px solid var(--line); background: var(--card);
+}
+.btn:hover { border-color: var(--fg2); }
+.btn.primary { background: var(--ink); color: var(--ink-fg); border-color: var(--ink); }
+.btn.primary:hover { opacity: .88; }
+.btn.off { color: var(--fg2); cursor: default; }
+.btn.off:hover { border-color: var(--line); }
+
+/* 截图 */
+.shot { margin: 8px auto 0; max-width: 1120px; }
+.window {
+  border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--card);
+  box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 24px 64px rgba(0,0,0,.14);
+}
+.window .bar { display: flex; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--bg2); }
+.window .bar i { width: 12px; height: 12px; border-radius: 6px; background: #d4d2cc; }
+.window img { display: block; width: 100%; height: auto; }
+.caption { text-align: center; color: var(--fg2); font-size: 14px; margin-top: 14px; }
+
+section { padding: 96px 0 0; }
+.eyebrow { font-size: 14px; font-weight: 600; letter-spacing: .08em; color: var(--fg2); text-transform: uppercase; }
+h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.25; margin: 8px 0 14px; letter-spacing: -.01em; }
+.intro { color: var(--fg2); max-width: 680px; margin: 0 0 40px; }
+
+/* 功能 */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px 24px; }
+.card svg { width: 28px; height: 28px; stroke: var(--fg); }
+.card h3 { margin: 14px 0 6px; font-size: 18px; }
+.card p { margin: 0; color: var(--fg2); font-size: 15px; }
+
+/* 终端 */
+.split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; }
+.term { background: var(--term); color: var(--term-fg); border-radius: 14px; padding: 22px 22px 20px; font-family: var(--mono); font-size: 13px; line-height: 1.75; overflow-x: auto; }
+.term .p { color: #8f93a0; }
+.term .e { color: #ff7b72; }
+.term .w { color: #e3b341; }
+.term pre { margin: 0; white-space: pre; }
+ul.ticks { list-style: none; padding: 0; margin: 0; }
+ul.ticks li { padding-left: 28px; position: relative; margin: 10px 0; }
+ul.ticks li::before { content: ""; position: absolute; left: 4px; top: 11px; width: 12px; height: 7px; border-left: 2px solid var(--fg); border-bottom: 2px solid var(--fg); transform: rotate(-45deg); }
+
+/* 原则 */
+.principles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.principles div { border-top: 2px solid var(--fg); padding-top: 14px; }
+.principles h3 { margin: 0 0 6px; font-size: 17px; }
+.principles p { margin: 0; color: var(--fg2); font-size: 15px; }
+
+/* 路线图 */
+ol.road { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--line); }
+ol.road li { position: relative; padding: 0 0 26px 28px; }
+ol.road li::before { content: ""; position: absolute; left: -7px; top: 8px; width: 12px; height: 12px; border-radius: 6px; background: var(--bg); border: 2px solid var(--fg2); }
+ol.road li.done::before { background: var(--fg); border-color: var(--fg); }
+ol.road li.now::before { background: var(--bg); border-color: var(--fg); box-shadow: 0 0 0 4px color-mix(in srgb, var(--fg) 15%, transparent); }
+ol.road b { font-size: 17px; }
+ol.road .tag { font-size: 13px; color: var(--fg2); margin-left: 8px; }
+ol.road p { margin: 2px 0 0; color: var(--fg2); font-size: 15px; }
+
+/* 结尾 */
+.end { text-align: center; padding: 110px 0 96px; }
+.end img { width: 72px; height: 72px; }
+footer { border-top: 1px solid var(--line); color: var(--fg2); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-top: 26px; padding-bottom: 40px; }
+footer .wrap span:last-child { margin-left: auto; }
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .principles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .split { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+}
+@media (max-width: 600px) {
+  .wrap { padding: 0 16px; }
+  nav.top .links a:not(.gh) { display: none; }
+  .hero { padding-top: 56px; padding-bottom: 40px; }
+  .grid, .principles { grid-template-columns: minmax(0, 1fr); }
+  section { padding-top: 72px; }
+  footer .wrap span:last-child { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<nav class="top" aria-label="主导航">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="assets/icon.svg" alt="" width="30" height="30">研墨 YanMo</a>
+    <div class="links">
+      <a href="#features">功能</a>
+      <a href="#check">检查</a>
+      <a href="#roadmap">路线图</a>
+      <a class="gh" href="https://github.com/ismethr/YanMo">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <img class="logo" src="assets/icon.svg" alt="研墨 YanMo 图标" width="112" height="112">
+  <div><span class="pill">开源 · 开发中（pre-alpha）</span></div>
+  <h1>研墨 <span>YanMo</span></h1>
+  <p class="lead">本地优先的 AI LaTeX 论文工作台</p>
+  <p class="sub">在一个桌面应用里写作、编译、管理章节、图表和参考文献。AI 只给建议，每一处修改都由你确认后才写入论文。</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/ismethr/YanMo">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      在 GitHub 上查看
+    </a>
+    <span class="btn off" aria-disabled="true">macOS / Windows / Linux 安装包 · 即将推出</span>
+  </div>
+</header>
+
+<div class="shot wrap">
+  <div class="window">
+    <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
+    <img src="assets/app.jpg" width="2880" height="1720" loading="eager" alt="研墨工作区截图：左侧是论文大纲与字数，中间是 LaTeX 编辑器，出错的引用带有波浪线，底部问题面板列出 4 个错误和 2 个警告">
+  </div>
+  <p class="caption">打开一篇论文：大纲、字数和全部引用问题一目了然，点击问题即可跳到出错的那一行。</p>
+</div>
+
+<section id="features" class="wrap">
+  <div class="eyebrow">功能</div>
+  <h2>写论文，而不是找东西</h2>
+  <p class="intro">把一篇论文当成一个项目来管理：章节、图表、文献和编译结果都在手边，引用出错会在写的时候就被发现。</p>
+  <div class="grid">
+    <div class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M8 13h8M8 17h5"/></svg>
+      <h3>零配置编译</h3>
+      <p>内置 Tectonic 引擎，不必先安装几个 GB 的 TeX 发行版；已有 TeX Live 也能直接使用。PDF 与源码双向跳转。</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16M8 10h12M8 15h12M4 20h16"/></svg>
+      <h3>论文大纲</h3>
+      <p>跨文件解析章节结构，中英文字数分开统计，为每节标记“草稿 / 待修改 / 完成”，写作进度清清楚楚。</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
+      <h3>图表资产</h3>
+      <p>所有图、表、公式集中列出：标题、label、被引用次数、图片文件是否存在，一眼看全。</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H20v-3M8 7h8M8 11h6"/></svg>
+      <h3>文献管理</h3>
+      <p>BibTeX 文献库可搜索，标出引用了却不存在、存在却从未引用、重复的条目；DOI / arXiv 一键导入（规划中）。</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+      <h3>可控的 AI</h3>
+      <p>润色、翻译、解释编译错误、修复引用。自带 Key：Claude、OpenAI 兼容接口或本地 Ollama。所有改动以 diff 呈现，确认后才写入。</p>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+      <h3>对 Agent 友好</h3>
+      <p>界面、命令行与 MCP 共用同一套命令。Claude Code 等编程 Agent 可以直接读大纲、跑检查、编译论文。</p>
+    </div>
+  </div>
+</section>
+
+<section id="check" class="wrap">
+  <div class="split">
+    <div>
+      <div class="eyebrow">ym check</div>
+      <h2>一条命令，检查整篇论文</h2>
+      <p class="intro" style="margin-bottom: 20px">编辑器里的问题面板和命令行用的是同一套检查，也能放进 CI，投稿前自动把关。</p>
+      <ul class="ticks">
+        <li>未定义的 \ref 与 \cite</li>
+        <li>重复的 label、缺失的图片文件</li>
+        <li>从未被引用的图表与文献条目</li>
+        <li>有错误时退出码非 0，输出可选 JSON</li>
+      </ul>
+    </div>
+    <div class="term" role="img" aria-label="ym check 命令在示例论文上的输出：4 个错误，2 个警告">
+<pre><span class="p">$</span> ym check
+sections/intro.tex:3: <span class="e">error</span>[undefined_ref] 引用了未定义的 label `fig:missing`
+sections/intro.tex:4: <span class="e">error</span>[undefined_cite] 引用了不存在的文献 `nobody2099`
+sections/method.tex:4: <span class="e">error</span>[missing_file] 找不到文件 `figures/arch.pdf`
+sections/method.tex:7: <span class="e">error</span>[duplicate_label] label `sec:intro` 被定义了 2 次
+refs.bib:8: <span class="w">warning</span>[unused_bib_entry] 文献 `unused2020` 从未被引用
+sections/method.tex:2: <span class="w">warning</span>[unreferenced_asset] 图 `fig:arch` 从未被引用
+
+4 个错误，2 个警告</pre>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">原则</div>
+  <h2>你的论文，始终是你的</h2>
+  <div class="principles">
+    <div><h3>开源免费</h3><p>MIT 或 Apache-2.0 双许可，代码完全公开，欢迎参与。</p></div>
+    <div><h3>本地优先</h3><p>论文就是普通文件夹里的 .tex 与 .bib，不锁定格式，随时可以换回别的编辑器。</p></div>
+    <div><h3>自带 Key</h3><p>研墨不经手你的密钥和论文；不想联网，就用本地模型。</p></div>
+    <div><h3>中文友好</h3><p>中文字数统计、ctex 模板、XeLaTeX 默认配置，开箱即用。</p></div>
+  </div>
+</section>
+
+<section id="roadmap" class="wrap">
+  <div class="eyebrow">路线图</div>
+  <h2>正在开发中</h2>
+  <p class="intro">研墨目前处于早期开发阶段，下面是首个版本 v0.1 的进度。</p>
+  <ol class="road">
+    <li class="done"><b>结构解析与检查</b><span class="tag">已完成</span><p>容错的 LaTeX 结构解析器、文献解析与 <code>ym check</code> 命令行。</p></li>
+    <li class="done"><b>桌面应用外壳</b><span class="tag">已完成</span><p>编辑器、大纲、图表、文献与问题面板，统一命令注册表。</p></li>
+    <li class="now"><b>编译与 PDF 预览</b><span class="tag">进行中</span><p>内置 Tectonic、编译日志定位、SyncTeX 双向跳转。</p></li>
+    <li><b>结构化管理增强</b><p>章节拖拽重排、DOI / arXiv 导入、图片拖入自动插入。</p></li>
+    <li><b>AI 辅助</b><p>多厂商自带 Key、选区润色与翻译、diff 确认。</p></li>
+    <li><b>v0.1 发布</b><p>macOS、Windows、Linux 安装包。</p></li>
+  </ol>
+</section>
+
+<div class="end wrap">
+  <img src="assets/icon.svg" alt="" width="72" height="72">
+  <h2>一起把写论文这件事变简单</h2>
+  <p class="intro" style="margin: 0 auto 28px">给项目点个 Star、提 Issue，或者直接贡献代码。</p>
+  <div class="cta" style="margin-top: 0"><a class="btn primary" href="https://github.com/ismethr/YanMo">前往 GitHub</a></div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 YanMo contributors</span>
+    <span>MIT OR Apache-2.0</span>
+    <span><a href="https://github.com/ismethr/YanMo">github.com/ismethr/YanMo</a></span>
+  </div>
+</footer>
+
+</body>
+</html>
