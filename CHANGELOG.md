@@ -1,0 +1,26 @@
+# 更新日志
+
+## v0.1.0（首个预览版）
+
+### 写作与编译
+- CodeMirror 编辑器：LaTeX 高亮、多标签页、停止输入后自动保存
+- 内置 Tectonic 编译引擎（无需安装 TeX），也支持系统 latexmk（XeLaTeX / pdfLaTeX / LuaLaTeX）
+- 编译日志结构化：错误与警告定位到文件和行号
+- PDF 预览：虚拟化渲染、缩放（双指捏合、⌘+ / ⌘-）、SyncTeX 双向跳转
+- 用 Pandoc 导出 Word：交叉引用与图表编号与 PDF 一致，PDF 图片自动转换，支持项目中的 .csl 与 reference.docx
+
+### 结构化管理
+- 论文大纲：章节编号、折叠、跟随光标、按语言统计字数（中文字、英文词）
+- 图表资产：按图、表、公式分组编号，缩略图，引用次数与缺失文件提示
+- 文献库：可读的标题与作者、筛选未使用条目、通过 DOI / arXiv 一键导入（查重、规范 key）
+- 拖入或粘贴图片：自动放入图片目录并插入 figure 环境
+- 一致性检查（与 `ym check` 同源）：未定义引用、重复 label、缺失文件、未使用的图与文献；同目录的补充材料等文档一并考虑
+- 一个目录多份文档时可切换主文件，设置保存在 `.yanmo/project.toml`
+
+### AI 辅助
+- 自带 Key：Anthropic（默认 Claude Opus 5.5）或 OpenAI 兼容接口（DeepSeek、通义、Ollama 等）；Key 只存系统钥匙串
+- 选区润色、学术化、中英互译、缩写、扩写：以对比形式给出，接受后才写入，可撤销
+- 带章节与大纲上下文的对话；解释编译错误
+
+### 命令行
+- `ym check`、`ym outline`、`ym compile`、`ym export`、`ym bib-import`、`ym exec <命令>`

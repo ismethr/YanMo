@@ -1,0 +1,79 @@
+name: Release
+
+# 推送 v* 标签（如 v0.1.0）时构建四个平台的安装包，上传到 GitHub Release 草稿。
+# 草稿需要人工检查后再发布。签名与公证见 docs/release.md。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          # 较旧的 glibc 让 AppImage / deb 能在更多发行版上运行
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: pnpm/action-setup@v4
+        with: { package_json_file: apps/desktop/ui/package.json }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: apps/desktop/ui/pnpm-lock.yaml }
+
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      # 内置编译引擎：Tectonic 官方预编译程序，作为 sidecar 打进安装包
+      - name: Fetch Tectonic sidecar
+        shell: bash
+        run: sh scripts/fetch-tectonic.sh --sidecar ${{ matrix.target }}
+
+      - run: pnpm --dir apps/desktop/ui install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS 签名与公证：配置好 APPLE_* secrets 后在这里加入对应环境变量（见 docs/release.md）。
+          # 未配置的 secret 会变成空字符串，直接引用会让打包失败，所以默认不引用。
+        with:
+          projectPath: apps/desktop/ui
+          tauriScript: pnpm tauri
+          args: --target ${{ matrix.target }} --config ../src-tauri/tauri.release.conf.json
+          # __VERSION__ 由 tauri-action 替换为 tauri.conf.json 中的版本号
+          tagName: v__VERSION__
+          releaseName: 研墨 YanMo v__VERSION__
+          releaseDraft: true
+          prerelease: false
+          releaseBody: |
+            ## 安装
+
+            | 系统 | 下载 |
+            |---|---|
+            | macOS（Apple 芯片） | `YanMo_*_aarch64.dmg` |
+            | macOS（Intel） | `YanMo_*_x64.dmg` |
+            | Windows | `YanMo_*_x64-setup.exe`（或 `.msi`） |
+            | Linux | `YanMo_*_amd64.AppImage` 或 `.deb` |
+
+            安装包已内置 Tectonic 编译引擎，不需要另外安装 TeX。导出 Word 需要另外安装 [Pandoc](https://pandoc.org/installing.html)。
+
+            **macOS 首次打开**：如果提示"无法验证开发者"，请在"访达"中右键点击 YanMo，选择"打开"；或运行 `xattr -cr /Applications/YanMo.app`。
+
+            更新内容见 [CHANGELOG](https://github.com/ismethr/YanMo/blob/main/CHANGELOG.md)。

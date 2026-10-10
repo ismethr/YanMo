@@ -17,3 +17,4 @@ dist/
 # 本地开发工具配置
 .claude/
 apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/binaries/

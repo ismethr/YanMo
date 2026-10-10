@@ -9,7 +9,14 @@
 - **可控的 AI**：自带 API Key（Claude / OpenAI 兼容 / Ollama），每次修改都以 diff 呈现、经确认后应用
 - **对 Agent 友好**：统一命令注册表，CLI 与 MCP Server 和 UI 共用同一套命令
 
-> 状态：pre-alpha。路线图见 [docs/MVP.md](docs/MVP.md)，架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+> 状态：首个预览版 v0.1。官网 [yanmo.ink](https://yanmo.ink)；路线图见 [docs/MVP.md](docs/MVP.md)，架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，更新见 [CHANGELOG](CHANGELOG.md)。
+
+## 安装
+
+从 [Releases](https://github.com/ismethr/YanMo/releases) 下载对应系统的安装包（macOS .dmg、Windows .exe / .msi、Linux .AppImage / .deb）。
+安装包已内置 Tectonic 编译引擎，不需要另外安装 TeX；导出 Word 需要另外安装 [Pandoc](https://pandoc.org/installing.html)。
+
+macOS 首次打开如提示"无法验证开发者"：在"访达"中右键点击 YanMo 选择"打开"，或运行 `xattr -cr /Applications/YanMo.app`。
 
 ## 开发
 
@@ -18,7 +25,7 @@
 ```bash
 pnpm --dir apps/desktop/ui install
 
-# 桌面应用（Tauri，会自动启动前端开发服务器）
+# 桌面应用（Tauri，会自动启动前端开发服务器）；需要先运行一次 sh scripts/fetch-tectonic.sh
 pnpm --dir apps/desktop/ui tauri dev
 
 # 只改界面：浏览器预览模式，使用 examples/sample-paper 的示例数据，无需编译 Rust
@@ -29,6 +36,8 @@ cargo test --workspace
 cargo run -p ym-cli -- -C examples/sample-paper check
 cargo run -p ym-cli -- exec                      # 列出命令注册表中的所有命令
 ```
+
+打包发布见 [docs/release.md](docs/release.md)。
 
 改动了 Rust 命令的返回结构后，运行 `pnpm --dir apps/desktop/ui fixtures` 重新生成预览模式的数据。
 
