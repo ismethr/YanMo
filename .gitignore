@@ -11,8 +11,8 @@ dist/
 *.toc
 *.bbl
 *.blg
-.yanmo/cache/
-.yanmo/build/
+**/.yanmo/cache/
+**/.yanmo/build/
 
 # 本地开发工具配置
 .claude/
