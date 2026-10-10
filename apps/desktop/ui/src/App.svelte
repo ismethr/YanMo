@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { app } from './lib/store.svelte';
+  import { app, PDF_TAB } from './lib/store.svelte';
   import { inTauri, launchFolder } from './lib/backend';
   import TitleBar from './components/TitleBar.svelte';
   import ActivityBar from './components/ActivityBar.svelte';
@@ -19,9 +19,17 @@
       if (folder) await app.openFolder(folder);
       return;
     }
-    if (!new URLSearchParams(location.search).has('demo')) return;
+    const q = new URLSearchParams(location.search);
+    if (!q.has('demo')) return;
     await app.openFolder();
     await app.openFile('sections/intro.tex', 3);
+    // ?demo&pdf=<url>：在预览模式中加载指定 PDF，便于调试查看器
+    const pdf = q.get('pdf');
+    if (pdf) {
+      const data = new Uint8Array(await (await fetch(pdf)).arrayBuffer());
+      app.pdf = { data, rev: (app.pdf?.rev ?? 0) + 1 };
+      await app.openFile(PDF_TAB);
+    }
   });
 
   function onKey(e: KeyboardEvent) {
