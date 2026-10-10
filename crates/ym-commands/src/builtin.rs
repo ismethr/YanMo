@@ -28,7 +28,45 @@ pub(crate) fn register(r: &mut Registry) {
         meta("project.index", "大纲、图表与字数", none.clone(), false),
         project_index,
     );
-    r.register(meta("check.run", "检查项目问题", none, false), check_run);
+    r.register(
+        meta("check.run", "检查项目问题", none.clone(), false),
+        check_run,
+    );
+    r.register(
+        meta(
+            "compile.run",
+            "编译论文",
+            json!({"type": "object", "properties": {"engine": {"enum": ["tectonic", "xelatex", "pdflatex", "lualatex"]}}}),
+            false,
+        ),
+        compile_run,
+    );
+    r.register(
+        meta("compile.pdf", "读取编译出的 PDF", none.clone(), false),
+        compile_pdf,
+    );
+    r.register(
+        meta("compile.toolchain", "可用的编译引擎", none, false),
+        compile_toolchain,
+    );
+    r.register(
+        meta(
+            "synctex.forward",
+            "源码位置 → PDF 位置",
+            json!({"type": "object", "properties": {"path": {"type": "string"}, "line": {"type": "integer"}}, "required": ["path", "line"]}),
+            false,
+        ),
+        synctex_forward,
+    );
+    r.register(
+        meta(
+            "synctex.inverse",
+            "PDF 位置 → 源码位置",
+            json!({"type": "object", "properties": {"page": {"type": "integer"}, "x": {"type": "number"}, "y": {"type": "number"}}, "required": ["page", "x", "y"]}),
+            false,
+        ),
+        synctex_inverse,
+    );
     r.register(meta("file.read", "读取文件", path_param, false), file_read);
     r.register(
         meta(
@@ -233,6 +271,59 @@ fn file_write(ws: &mut Workspace, p: Value) -> CommandResult {
     fs::write(&abs, text)?;
     ws.invalidate();
     Ok(json!({ "path": path }))
+}
+
+#[derive(Deserialize, Default)]
+struct CompileParam {
+    engine: Option<ym_model::Engine>,
+}
+
+fn compile_run(ws: &mut Workspace, p: Value) -> CommandResult {
+    let CompileParam { engine } = if p.is_null() {
+        CompileParam::default()
+    } else {
+        params(p)?
+    };
+    let job = ws.compile_job(engine)?;
+    let out = job.run()?;
+    ws.finish_compile(out.clone());
+    to_value(&out)
+}
+
+fn compile_pdf(ws: &mut Workspace, _: Value) -> CommandResult {
+    use base64::Engine as _;
+    let rel = ws
+        .pdf_path()
+        .ok_or_else(|| CommandError::Failed("尚未编译出 PDF".into()))?;
+    let bytes = fs::read(ws.root()?.join(&rel))?;
+    Ok(json!({ "path": rel, "base64": base64::engine::general_purpose::STANDARD.encode(bytes) }))
+}
+
+fn compile_toolchain(ws: &mut Workspace, _: Value) -> CommandResult {
+    to_value(ws.toolchain())
+}
+
+#[derive(Deserialize)]
+struct ForwardParam {
+    path: String,
+    line: u32,
+}
+
+#[derive(Deserialize)]
+struct InverseParam {
+    page: u32,
+    x: f64,
+    y: f64,
+}
+
+fn synctex_forward(ws: &mut Workspace, p: Value) -> CommandResult {
+    let ForwardParam { path, line } = params(p)?;
+    to_value(&ws.synctex()?.forward(&path, line))
+}
+
+fn synctex_inverse(ws: &mut Workspace, p: Value) -> CommandResult {
+    let InverseParam { page, x, y } = params(p)?;
+    to_value(&ws.synctex()?.inverse(page, x, y))
 }
 
 #[cfg(test)]

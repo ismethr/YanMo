@@ -22,6 +22,7 @@
     "@tauri-apps/api": "^2.12.2",
     "@tauri-apps/plugin-dialog": "^2.8.1",
     "codemirror": "^6.0.2",
+    "pdfjs-dist": "^6.4.299",
     "svelte": "^5.57.2"
   },
   "devDependencies": {

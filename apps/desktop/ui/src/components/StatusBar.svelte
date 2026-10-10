@@ -3,6 +3,16 @@
   import { inTauri } from '../lib/backend';
 
   const demo = !inTauri && new URLSearchParams(location.search).has('demo');
+
+  let engineName = $derived(
+    app.toolchain
+      ? app.toolchain.tectonic
+        ? 'Tectonic'
+        : app.toolchain.latexmk
+          ? 'latexmk · XeLaTeX'
+          : '未找到编译引擎'
+      : 'Tectonic · XeLaTeX',
+  );
 </script>
 
 <footer>
@@ -10,7 +20,15 @@
     <button onclick={() => (app.bottom = 'problems')} aria-label="打开问题面板">
       <span>✕ {app.errors}</span><span>⚠ {app.warnings}</span>
     </button>
-    <span>Tectonic · XeLaTeX</span>
+    <button onclick={() => (app.bottom = 'log')} aria-label="打开编译日志">
+      {#if app.compiling}
+        编译中…
+      {:else if app.lastCompile}
+        {app.lastCompile.success ? '✓ 已编译' : app.lastCompile.pdf ? '⚠ 编译有错误' : '✕ 编译失败'} · {(app.lastCompile.duration_ms / 1000).toFixed(1)}s
+      {:else}
+        {engineName}
+      {/if}
+    </button>
   {/if}
   {#if !inTauri && !demo}<span class="preview">浏览器预览模式 · 示例数据</span>{/if}
   <span class="grow"></span>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { app } from './lib/store.svelte';
-  import { inTauri } from './lib/backend';
+  import { inTauri, launchFolder } from './lib/backend';
   import TitleBar from './components/TitleBar.svelte';
   import ActivityBar from './components/ActivityBar.svelte';
   import Sidebar from './components/Sidebar.svelte';
@@ -14,7 +14,12 @@
 
   // 浏览器预览的演示模式：?demo 自动打开示例论文（用于截图与官网）
   onMount(async () => {
-    if (inTauri || !new URLSearchParams(location.search).has('demo')) return;
+    if (inTauri) {
+      const folder = await launchFolder();
+      if (folder) await app.openFolder(folder);
+      return;
+    }
+    if (!new URLSearchParams(location.search).has('demo')) return;
     await app.openFolder();
     await app.openFile('sections/intro.tex', 3);
   });
@@ -32,6 +37,12 @@
     } else if (k === 'i') {
       e.preventDefault();
       app.aiOpen = !app.aiOpen;
+    } else if (k === 'b') {
+      e.preventDefault();
+      void app.compile();
+    } else if (e.altKey && (k === 'j' || e.code === 'KeyJ')) {
+      e.preventDefault();
+      void app.forwardSync();
     }
   }
 </script>

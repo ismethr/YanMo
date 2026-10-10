@@ -10,6 +10,8 @@ import tree from './fixtures/project.tree.json';
 import index from './fixtures/project.index.json';
 import check from './fixtures/check.run.json';
 import files from './fixtures/files.json';
+import compileRun from './fixtures/compile.run.json';
+import compilePdf from './fixtures/compile.pdf.json';
 
 export const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -25,6 +27,11 @@ export async function listCommands(): Promise<CommandMeta[]> {
     { id: 'check.run', title: '检查项目问题', mutating: false },
     { id: 'file.write', title: '写入文件', mutating: true },
   ];
+}
+
+/** 命令行启动参数中的项目文件夹（仅桌面端）。 */
+export async function launchFolder(): Promise<string | null> {
+  return inTauri ? invoke<string | null>('launch_folder') : null;
 }
 
 /** 弹出系统对话框选择论文文件夹；预览模式直接返回示例论文。 */
@@ -55,6 +62,15 @@ function preview(id: string, params: Record<string, unknown>): unknown {
     case 'file.write':
       previewFiles[path] = params.text as string;
       return { path };
+    case 'compile.run':
+      return compileRun;
+    case 'compile.pdf':
+      return compilePdf;
+    case 'compile.toolchain':
+      return { tectonic: 'tectonic', latexmk: null };
+    case 'synctex.forward':
+    case 'synctex.inverse':
+      return null; // 预览模式没有 SyncTeX 数据
     default:
       throw new Error(`未知命令：${id}`);
   }

@@ -1,5 +1,8 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
+
+  let compileErrors = $derived(app.lastCompile?.diagnostics.filter((d) => d.severity === 'error').length ?? 0);
+  const label = { error: '错误', warning: '警告', badbox: '排版' } as const;
 </script>
 
 <section aria-label="面板">
@@ -7,8 +10,12 @@
     <button role="tab" aria-selected={app.bottom === 'problems'} class:on={app.bottom === 'problems'} onclick={() => (app.bottom = 'problems')}>
       问题 <span class="chip">{app.check?.issues.length ?? 0}</span>
     </button>
-    <button role="tab" aria-selected={app.bottom === 'log'} class:on={app.bottom === 'log'} onclick={() => (app.bottom = 'log')}>编译日志</button>
-    <span class="hint muted">与 <span class="mono">ym check</span> 同源</span>
+    <button role="tab" aria-selected={app.bottom === 'log'} class:on={app.bottom === 'log'} onclick={() => (app.bottom = 'log')}>
+      编译日志 {#if compileErrors}<span class="chip c-err">{compileErrors}</span>{/if}
+    </button>
+    <span class="hint muted">
+      {#if app.bottom === 'problems'}与 <span class="mono">ym check</span> 同源{:else if app.lastCompile}{app.lastCompile.engine} · {(app.lastCompile.duration_ms / 1000).toFixed(1)}s{/if}
+    </span>
   </div>
   <div class="body">
     {#if app.bottom === 'problems'}
@@ -22,8 +29,22 @@
       {:else}
         <p class="c-ok pad">{app.check ? '未发现问题' : '尚未检查（项目缺少主文件？）'}</p>
       {/each}
+    {:else if app.compiling && !app.lastCompile}
+      <p class="muted pad">编译中…</p>
+    {:else if app.lastCompile}
+      {#each app.lastCompile.diagnostics as d, i (i)}
+        <button class="prob" onclick={() => d.file && app.openFile(d.file, d.line ?? 1)}>
+          <span class={d.severity === 'error' ? 'c-err' : 'c-warn'} aria-label={label[d.severity]}>{d.severity === 'error' ? '✕' : '!'}</span>
+          <span class="msg">{d.message}</span>
+          <span class="loc">{d.file ?? ''}{d.line ? `:${d.line}` : ''}</span>
+        </button>
+      {/each}
+      <details>
+        <summary class="muted">原始日志（末尾 40 行）</summary>
+        <pre class="mono">{app.lastCompile.log_tail}</pre>
+      </details>
     {:else}
-      <p class="muted pad mono">编译功能将在 M1 接入（内置 Tectonic）。</p>
+      <p class="muted pad">还没有编译。按 ⌘B 编译；默认保存后自动编译。</p>
     {/if}
   </div>
 </section>
@@ -92,5 +113,19 @@
   .pad {
     padding: 4px 14px;
     margin: 6px 0;
+  }
+  details {
+    padding: 6px 14px;
+  }
+  summary {
+    cursor: pointer;
+    font-size: 12px;
+  }
+  pre {
+    margin: 6px 0 0;
+    font-size: 11.5px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    color: var(--fg2);
   }
 </style>

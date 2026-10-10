@@ -24,8 +24,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// 编译论文
-    Compile,
+    /// 编译论文；输出在 .yanmo/build/，有错误时退出码为 1
+    Compile {
+        /// 指定引擎：tectonic / xelatex / pdflatex / lualatex（默认自动选择）
+        #[arg(long)]
+        engine: Option<String>,
+    },
     /// 打印大纲与字数
     Outline,
     /// 检查引用、文献、图片问题；有错误时退出码为 1（可用于 CI）
@@ -140,7 +144,47 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             print_json(&registry.execute(&mut ws, &id, params)?)?;
             Ok(ExitCode::SUCCESS)
         }
-        Cmd::Compile => bail!("ym compile 尚未实现（M1）"),
+        Cmd::Compile { engine } => {
+            let registry = ym_commands::Registry::with_builtins();
+            let mut ws = ym_commands::Workspace::default();
+            ws.open(root)?;
+            let params = serde_json::json!({ "engine": engine });
+            let out = registry.execute(&mut ws, "compile.run", params)?;
+            if cli.json {
+                print_json(&out)?;
+            } else {
+                for d in out["diagnostics"].as_array().into_iter().flatten() {
+                    let loc = match (d["file"].as_str(), d["line"].as_u64()) {
+                        (Some(f), Some(l)) => format!("{f}:{l}: "),
+                        (Some(f), None) => format!("{f}: "),
+                        _ => String::new(),
+                    };
+                    println!(
+                        "{loc}{}: {}",
+                        d["severity"].as_str().unwrap_or(""),
+                        d["message"].as_str().unwrap_or("")
+                    );
+                }
+                let secs = out["duration_ms"].as_u64().unwrap_or(0) as f64 / 1000.0;
+                let engine = out["engine"].as_str().unwrap_or("");
+                match out["pdf"].as_str() {
+                    Some(pdf) => println!(
+                        "\n{} {pdf}（{engine}，{secs:.1}s）",
+                        if out["success"] == true {
+                            "✓ 已生成"
+                        } else {
+                            "⚠ 有错误，仍生成了"
+                        }
+                    ),
+                    None => println!("\n✕ 编译失败（{engine}，{secs:.1}s）"),
+                }
+            }
+            Ok(if out["success"] == true {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(1)
+            })
+        }
         Cmd::BibImport { .. } => bail!("ym bib-import 尚未实现（M2 后续）"),
     }
 }

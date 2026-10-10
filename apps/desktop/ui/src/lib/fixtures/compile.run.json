@@ -1,0 +1,46 @@
+{
+  "diagnostics": [
+    {
+      "file": null,
+      "line": null,
+      "message": "Label `sec:intro' multiply defined.",
+      "severity": "warning"
+    },
+    {
+      "file": "sections/intro.tex",
+      "line": 3,
+      "message": "Reference `fig:missing' on page 1 undefined on input line 3.",
+      "severity": "warning"
+    },
+    {
+      "file": "sections/intro.tex",
+      "line": 4,
+      "message": "Citation `nobody2099' on page 1 undefined on input line 4.",
+      "severity": "warning"
+    },
+    {
+      "file": "sections/method.tex",
+      "line": 4,
+      "message": "File `figures/arch.pdf' not found on input line 4.",
+      "severity": "warning"
+    },
+    {
+      "file": "sections/method.tex",
+      "line": 4,
+      "message": "Unable to load picture or PDF file 'figures/arch.pdf'.",
+      "severity": "error"
+    },
+    {
+      "file": "sections/method.tex",
+      "line": 4,
+      "message": "Package graphics Error: Division by 0.",
+      "severity": "error"
+    }
+  ],
+  "duration_ms": 4909,
+  "engine": "tectonic",
+  "log_tail": "error: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Package graphics Error: Division by 0.\n\nSee the graphics package documentation for explanation.\nType  H <return>  for immediate help\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Package graphics Error: Division by 0.\n\nSee the graphics package documentation for explanation.\nType  H <return>  for immediate help\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Package graphics Error: Division by 0.\n\nSee the graphics package documentation for explanation.\nType  H <return>  for immediate help\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nwarning: errors were issued by the TeX engine, but were ignored; use --print and/or --keep-logs for details.",
+  "pdf": ".yanmo/build/main.pdf",
+  "success": false,
+  "synctex": ".yanmo/build/main.synctex.gz"
+}

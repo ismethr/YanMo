@@ -1,5 +1,7 @@
 use std::path::{Component, Path, PathBuf};
+use ym_compile::{CompileOutput, CompileRequest, SyncTex, Toolchain};
 use ym_latex::ProjectIndex;
+use ym_model::Engine;
 
 use crate::CommandError;
 
@@ -9,6 +11,22 @@ pub struct Workspace {
     root: Option<PathBuf>,
     main: Option<PathBuf>,
     index: Option<ProjectIndex>,
+    toolchain: Option<Toolchain>,
+    last_compile: Option<CompileOutput>,
+    synctex: Option<SyncTex>,
+}
+
+/// 一次编译所需的全部信息。与 Workspace 分离，使宿主可以在不持有工作区锁的情况下编译。
+pub struct CompileJob {
+    pub request: CompileRequest,
+    pub toolchain: Toolchain,
+}
+
+impl CompileJob {
+    pub fn run(&self) -> Result<CompileOutput, CommandError> {
+        ym_compile::compile(&self.request, &self.toolchain)
+            .map_err(|e| CommandError::Failed(e.to_string()))
+    }
 }
 
 impl Workspace {
@@ -23,6 +41,8 @@ impl Workspace {
         self.main = ym_latex::find_main(&root);
         self.root = Some(root);
         self.index = None;
+        self.last_compile = None;
+        self.synctex = None;
         Ok(())
     }
 
@@ -63,5 +83,58 @@ impl Workspace {
             )));
         }
         Ok(self.root()?.join(p))
+    }
+
+    pub fn toolchain(&mut self) -> &Toolchain {
+        self.toolchain.get_or_insert_with(Toolchain::detect)
+    }
+
+    pub fn compile_job(&mut self, engine: Option<Engine>) -> Result<CompileJob, CommandError> {
+        let root = self.root()?.to_path_buf();
+        let main = self.main.clone().ok_or_else(|| {
+            CommandError::Failed("项目中没有找到含 \\documentclass 的主文件".into())
+        })?;
+        Ok(CompileJob {
+            request: CompileRequest { root, main, engine },
+            toolchain: self.toolchain().clone(),
+        })
+    }
+
+    pub fn finish_compile(&mut self, output: CompileOutput) {
+        self.synctex = None;
+        self.last_compile = Some(output);
+    }
+
+    pub fn last_compile(&self) -> Option<&CompileOutput> {
+        self.last_compile.as_ref()
+    }
+
+    /// 最近一次编译的 PDF（相对项目根目录）；本次会话尚未编译时沿用 build 目录里已有的。
+    pub fn pdf_path(&self) -> Option<String> {
+        if let Some(out) = &self.last_compile {
+            if out.pdf.is_some() {
+                return out.pdf.clone();
+            }
+        }
+        let stem = self
+            .main
+            .as_ref()?
+            .file_stem()?
+            .to_string_lossy()
+            .into_owned();
+        let rel = format!("{}/{stem}.pdf", ym_compile::BUILD_DIR);
+        self.root.as_ref()?.join(&rel).is_file().then_some(rel)
+    }
+
+    pub fn synctex(&mut self) -> Result<&SyncTex, CommandError> {
+        if self.synctex.is_none() {
+            let root = self.root()?.to_path_buf();
+            let pdf = self
+                .pdf_path()
+                .ok_or_else(|| CommandError::Failed("尚未编译".into()))?;
+            let path = root.join(pdf.trim_end_matches(".pdf").to_owned() + ".synctex.gz");
+            self.synctex = Some(SyncTex::load(&path, &root)?);
+        }
+        Ok(self.synctex.as_ref().expect("just set"))
     }
 }

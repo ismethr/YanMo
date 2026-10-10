@@ -1,7 +1,17 @@
 // 应用状态（Svelte 5 runes）。所有对项目的读写都经由 backend.execute，即 Rust 命令注册表。
 
 import { execute, pickFolder } from './backend';
-import type { CheckResult, Issue, ProjectIndex, ProjectInfo, TreeNode } from './types';
+import type {
+  CheckResult,
+  CompileOutput,
+  Issue,
+  PdfRect,
+  ProjectIndex,
+  ProjectInfo,
+  SourceLocation,
+  Toolchain,
+  TreeNode,
+} from './types';
 
 export type Activity = 'files' | 'outline' | 'assets' | 'bib';
 
@@ -41,6 +51,17 @@ class AppState {
   reveal = $state<{ path: string; line: number; n: number } | null>(null);
   notice = $state<string | null>(null);
   recent = $state<string[]>(loadRecent());
+
+  // 编译与 PDF
+  toolchain = $state<Toolchain | null>(null);
+  compiling = $state(false);
+  lastCompile = $state<CompileOutput | null>(null);
+  /** 当前 PDF 的字节；rev 递增表示有新版本 */
+  pdf = $state<{ data: Uint8Array; rev: number } | null>(null);
+  /** 正向同步的目标区域；n 递增以便重复定位 */
+  syncTarget = $state<(PdfRect & { n: number }) | null>(null);
+  autoCompile = $state(true);
+  #compileAgain = false;
 
   #timers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -86,8 +107,14 @@ class AppState {
     this.tabs = [];
     this.docs = {};
     this.active = null;
+    this.lastCompile = null;
+    this.pdf = null;
+    this.syncTarget = null;
     await this.refresh();
     if (this.project.main) await this.openFile(this.project.main);
+    execute<Toolchain>('compile.toolchain').then((t) => (this.toolchain = t), () => {});
+    // 沿用上次编译留下的 PDF（如果有）
+    await this.loadPdf(true);
   }
 
   /** 重新读取文件树、索引与检查结果（保存后调用）。 */
@@ -143,6 +170,7 @@ class AppState {
       await execute('file.write', { path, text });
       doc.saved = text;
       await this.refresh();
+      if (this.autoCompile) void this.compile();
     } catch (e) {
       this.flash(`保存失败：${e}`);
     }
@@ -150,6 +178,75 @@ class AppState {
 
   async saveActive() {
     if (this.active && this.active !== PDF_TAB) await this.save(this.active);
+  }
+
+  /** 编译；编译进行中再次触发时，结束后补编一次（连续保存只多编一次）。 */
+  async compile() {
+    if (!this.project) return;
+    if (this.compiling) {
+      this.#compileAgain = true;
+      return;
+    }
+    this.compiling = true;
+    try {
+      const out = await execute<CompileOutput>('compile.run');
+      this.lastCompile = out;
+      if (out.pdf) await this.loadPdf();
+      if (!out.success) {
+        const n = out.diagnostics.filter((d) => d.severity === 'error').length;
+        this.flash(out.pdf ? `编译完成，但有 ${n} 个错误` : '编译失败，详见编译日志');
+      }
+    } catch (e) {
+      this.flash(`无法编译：${e}`);
+    } finally {
+      this.compiling = false;
+    }
+    if (this.#compileAgain) {
+      this.#compileAgain = false;
+      void this.compile();
+    }
+  }
+
+  async loadPdf(quiet = false) {
+    try {
+      const { base64 } = await execute<{ base64: string }>('compile.pdf');
+      const bin = atob(base64);
+      const data = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) data[i] = bin.charCodeAt(i);
+      this.pdf = { data, rev: (this.pdf?.rev ?? 0) + 1 };
+    } catch (e) {
+      if (!quiet) this.flash(String(e));
+    }
+  }
+
+  /** 源码 → PDF：在 PDF 中高亮当前行。 */
+  async forwardSync(path = this.active, line = this.cursor.line) {
+    if (!path || path === PDF_TAB) return;
+    if (!this.pdf) {
+      this.flash('还没有 PDF，请先编译（⌘B）');
+      return;
+    }
+    try {
+      const rect = await execute<PdfRect | null>('synctex.forward', { path, line });
+      if (!rect) {
+        this.flash('这一行在 PDF 中没有对应位置');
+        return;
+      }
+      await this.openFile(PDF_TAB);
+      this.syncTarget = { ...rect, n: (this.syncTarget?.n ?? 0) + 1 };
+    } catch (e) {
+      this.flash(String(e));
+    }
+  }
+
+  /** PDF → 源码：跳到点击位置对应的源码行。坐标为 PDF 点，原点在页面左上角。 */
+  async inverseSync(page: number, x: number, y: number) {
+    try {
+      const loc = await execute<SourceLocation | null>('synctex.inverse', { page, x, y });
+      if (loc) await this.openFile(loc.file, loc.line);
+    } catch (e) {
+      this.flash(String(e));
+    }
   }
 }
 

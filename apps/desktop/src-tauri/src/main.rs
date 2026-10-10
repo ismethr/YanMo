@@ -9,7 +9,8 @@ fn main() {
         .manage(bridge::AppState::default())
         .invoke_handler(tauri::generate_handler![
             bridge::execute,
-            bridge::list_commands
+            bridge::list_commands,
+            bridge::launch_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running YanMo");

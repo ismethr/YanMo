@@ -6,7 +6,7 @@ cd "$(dirname "$0")/../../../.."
 OUT=apps/desktop/ui/src/lib/fixtures
 SAMPLE=examples/sample-paper
 mkdir -p "$OUT"
-for id in project.info project.tree project.index check.run; do
+for id in project.info project.tree project.index check.run compile.run compile.pdf; do
   cargo run -q -p ym-cli -- -C "$SAMPLE" exec "$id" > "$OUT/$id.json"
 done
 node -e '

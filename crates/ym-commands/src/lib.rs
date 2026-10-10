@@ -10,7 +10,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-pub use workspace::Workspace;
+pub use workspace::{CompileJob, Workspace};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CommandMeta {

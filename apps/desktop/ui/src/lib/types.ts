@@ -80,3 +80,39 @@ export interface CommandMeta {
   title: string;
   mutating: boolean;
 }
+
+export interface CompileDiagnostic {
+  severity: 'error' | 'warning' | 'badbox';
+  file: string | null;
+  line: number | null;
+  message: string;
+}
+
+export interface CompileOutput {
+  success: boolean;
+  engine: 'tectonic' | 'xelatex' | 'pdflatex' | 'lualatex';
+  pdf: string | null;
+  synctex: string | null;
+  diagnostics: CompileDiagnostic[];
+  duration_ms: number;
+  log_tail: string;
+}
+
+export interface Toolchain {
+  tectonic: string | null;
+  latexmk: string | null;
+}
+
+/** PDF 坐标（点），原点在页面左上角 */
+export interface PdfRect {
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface SourceLocation {
+  file: string;
+  line: number;
+}

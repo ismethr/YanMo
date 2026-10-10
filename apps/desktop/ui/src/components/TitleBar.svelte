@@ -14,8 +14,8 @@
     <span class="kbd">⇧⌘P</span>
   </button>
   <div class="actions">
-    <button class="btn btn-pri" disabled title="编译将在 M1 接入">
-      <Icon name="play" size={12} fill />编译
+    <button class="btn btn-pri" disabled={!app.project} onclick={() => app.compile()} title="编译（⌘B）">
+      <Icon name="play" size={12} fill />{app.compiling ? '编译中…' : '编译'}
     </button>
     <button class="btn" onclick={() => (app.aiOpen = !app.aiOpen)} aria-pressed={app.aiOpen}>
       <Icon name="sparkle" size={14} />AI

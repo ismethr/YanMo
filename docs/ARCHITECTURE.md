@@ -15,14 +15,16 @@
    ym-compile    ym-ai      ym-check     ym-bib     ym-latex
    Tectonic/    多厂商LLM   一致性检查   bib解析/   结构级解析
    latexmk/     Patch生成                DOI导入
-   SyncTeX
+   日志/SyncTeX
         └──────────┴────────────┴───────────┴──────────┘
                           ym-model（纯数据）
 ```
 
 ## 关键数据流
 
-**编辑 → 编译**：文件保存 → 防抖 300ms → `compile.run` → `ym-compile` → `CompileOutput`（PDF + 诊断）→ 刷新 PDF 预览和问题面板。
+**编辑 → 编译**：停止输入 0.8 秒自动保存 → `compile.run`（编译进行中再次触发会在结束后补编一次）→ `ym-compile` 调用 Tectonic 或 latexmk，产物写入 `.yanmo/build/` → 解析 TeX 日志得到带文件与行号的诊断 → 前端经 `compile.pdf` 取回 PDF，用 pdf.js 渲染。桌面端编译时不持有工作区锁，期间其他命令照常响应。
+
+**SyncTeX**：`synctex.forward`（源码行 → PDF 矩形）与 `synctex.inverse`（PDF 点 → 源码行）。TeX 在段落结束时才输出整行盒子，这些盒子常被记到下一条命令的行号上，因此查询以字距、空隙等小记录为准。
 
 **索引**：文件变化 → `ym-latex` 增量重解析该文件 → 合并项目索引 → 刷新大纲、资产、文献面板和补全数据 → `ym-check` 更新问题列表。
 

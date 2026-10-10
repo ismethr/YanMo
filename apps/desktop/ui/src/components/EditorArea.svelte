@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app, PDF_TAB } from '../lib/store.svelte';
   import CodeEditor from './CodeEditor.svelte';
+  import PdfViewer from './PdfViewer.svelte';
   import Icon from './Icon.svelte';
 
   const name = (p: string) => (p === PDF_TAB ? 'main.pdf' : p.split('/').pop()!);
@@ -32,22 +33,33 @@
     </button>
   </div>
 
-  {#if app.active === PDF_TAB}
+  {#if app.active === PDF_TAB && !app.pdf}
     <div class="crumbs">main.pdf</div>
     <div class="pdf">
       <div class="paper">
-        <p class="strong">PDF 预览</p>
-        <p class="muted">编译（内置 Tectonic）与 SyncTeX 双向跳转将在 M1 接入。届时这里显示 main.pdf，点击段落即可跳回源码。</p>
+        <p class="strong">还没有 PDF</p>
+        <p class="muted">点击编译（⌘B）生成 PDF。默认使用内置 Tectonic，首次编译需要下载宏包，可能要几分钟。</p>
+        <button class="btn btn-pri" onclick={() => app.compile()} disabled={app.compiling}>{app.compiling ? '编译中…' : '编译'}</button>
       </div>
     </div>
+  {:else if app.active === PDF_TAB}
+    <!-- PDF 查看器在下方常驻渲染 -->
   {:else if app.active}
     <div class="crumbs">
       {#each crumbs as c, i (i)}{#if i}<span aria-hidden="true">›</span>{/if}<span>{c}</span>{/each}
+      {#if app.active.endsWith('.tex')}
+        <button class="sync" onclick={() => app.forwardSync()} title="在 PDF 中定位当前行（⌥⌘J）">
+          <Icon name="pdf" size={12} />在 PDF 中定位
+        </button>
+      {/if}
     </div>
   {:else}
     <div class="blank">
       <p class="muted">从左侧打开一个文件，或按 ⇧⌘P 打开命令面板</p>
     </div>
+  {/if}
+  {#if app.pdf}
+    <div class="viewer" class:hidden={app.active !== PDF_TAB}><PdfViewer /></div>
   {/if}
   {#if textTab}
     <div class="editor" class:hidden={app.active === PDF_TAB}><CodeEditor path={textTab} /></div>
@@ -138,7 +150,28 @@
     min-height: 0;
   }
   .hidden {
-    display: none;
+    display: none !important;
+  }
+  .viewer {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+  }
+  .sync {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 8px;
+    border-radius: 4px;
+    color: var(--fg2);
+  }
+  .sync:hover {
+    background: var(--hover);
+    color: var(--fg);
+  }
+  .paper .btn {
+    margin-top: 8px;
   }
   .pdf {
     flex: 1;

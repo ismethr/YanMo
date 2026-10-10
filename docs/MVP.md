@@ -150,7 +150,7 @@
 | 桌面框架 | Tauri v2 | Rust 后端可以直接复用 PhotoCraft 式的 crate 分层；安装包小 |
 | UI 层 | Web（TypeScript + Svelte 或 React） | CodeMirror 6 和 PDF.js 生态成熟；PhotoCraft 用的 egui 不适合富文本编辑和 PDF 显示 |
 | 编辑器 | CodeMirror 6 | 比 Monaco 轻，扩展性好，更方便做 diff 装饰和 inline widget |
-| 编译 | Tectonic（Rust 库内嵌）+ 可选 latexmk | 新用户零配置；老用户保留自己的 TeX 环境 |
+| 编译 | Tectonic（官方预编译程序，作为 sidecar 随应用分发）+ 可选 latexmk | 新用户零配置；老用户保留自己的 TeX 环境。不以 Rust 库形式嵌入，因为该库依赖 ICU/HarfBuzz/FreeType 等系统库，三平台构建成本高 |
 | LaTeX 解析 | 自研容错解析器（只做结构层面，不做完整宏展开） | 只需要提取大纲、label、ref、cite、includegraphics、input |
 | 数据存储 | 源码就是唯一事实来源；`.yanmo/` 只存元数据和缓存 | 不锁定用户，可以随时换回其他编辑器 |
 | 许可证 | MIT OR Apache-2.0 | 与 PhotoCraft 一致，对社区友好（注意 Tectonic 是 MIT，可兼容） |
