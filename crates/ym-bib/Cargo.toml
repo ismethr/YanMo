@@ -1,0 +1,11 @@
+[package]
+name = "ym-bib"
+description = "BibTeX/BibLaTeX 解析与写回，Crossref / arXiv 导入，Zotero(BBT) 桥接"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ym-model.workspace = true
+serde.workspace = true
+thiserror.workspace = true

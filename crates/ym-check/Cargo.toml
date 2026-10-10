@@ -1,0 +1,12 @@
+[package]
+name = "ym-check"
+description = "一致性检查：未定义引用、重复 label、未使用图表/文献、缺失文件"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ym-model.workspace = true
+ym-latex.workspace = true
+ym-bib.workspace = true
+serde.workspace = true

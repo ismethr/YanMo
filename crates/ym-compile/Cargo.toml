@@ -1,0 +1,12 @@
+[package]
+name = "ym-compile"
+description = "编译驱动：内置 Tectonic + 系统 latexmk，日志解析，SyncTeX"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ym-model.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio.workspace = true

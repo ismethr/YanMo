@@ -1,0 +1,11 @@
+[package]
+name = "ym-model"
+description = "项目与文档模型：项目、文件、章节树、资产、文献的纯数据表示（无 IO 以外的副作用）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+toml.workspace = true
+thiserror.workspace = true

@@ -1,0 +1,10 @@
+[package]
+name = "ym-latex"
+description = "容错的结构级 LaTeX 解析器：提取大纲、label/ref、cite、includegraphics、input/include"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ym-model.workspace = true
+serde.workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "ym-commands"
+description = "统一命令注册表：UI / CLI / MCP / AI Agent 共用的唯一操作入口"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ym-model.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
