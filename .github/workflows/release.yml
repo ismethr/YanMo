@@ -54,8 +54,9 @@ jobs:
           # macOS 签名与公证：配置好 APPLE_* secrets 后在这里加入对应环境变量（见 docs/release.md）。
           # 未配置的 secret 会变成空字符串，直接引用会让打包失败，所以默认不引用。
         with:
-          projectPath: apps/desktop/ui
-          tauriScript: pnpm tauri
+          # tauri-action 在 projectPath 下查找 src-tauri/tauri.conf.json；CLI 经前端目录里的包装脚本调用
+          projectPath: apps/desktop
+          tauriScript: pnpm --dir ui tauri
           args: --target ${{ matrix.target }} --config ../src-tauri/tauri.release.conf.json
           # __VERSION__ 由 tauri-action 替换为 tauri.conf.json 中的版本号
           tagName: v__VERSION__
