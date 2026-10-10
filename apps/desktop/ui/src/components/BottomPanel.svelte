@@ -3,9 +3,26 @@
 
   let compileErrors = $derived(app.lastCompile?.diagnostics.filter((d) => d.severity === 'error').length ?? 0);
   const label = { error: '错误', warning: '警告', badbox: '排版' } as const;
+
+  // 面板高度拖拽
+  function startResize(e: PointerEvent) {
+    const startY = e.clientY;
+    const startH = app.layout.panelHeight;
+    const move = (ev: PointerEvent) => {
+      app.layout.panelHeight = Math.min(window.innerHeight * 0.7, Math.max(90, startH - (ev.clientY - startY)));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      app.saveLayout();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
 </script>
 
-<section aria-label="面板">
+<section aria-label="面板" style:height="{app.layout.panelHeight}px">
+  <div class="resizer" role="separator" aria-orientation="horizontal" aria-label="调整面板高度" onpointerdown={startResize}></div>
   <div class="head" role="tablist">
     <button role="tab" aria-selected={app.bottom === 'problems'} class:on={app.bottom === 'problems'} onclick={() => (app.bottom = 'problems')}>
       问题 <span class="chip">{app.check?.issues.length ?? 0}</span>
@@ -16,6 +33,7 @@
     <span class="hint muted">
       {#if app.bottom === 'problems'}与 <span class="mono">ym check</span> 同源{:else if app.lastCompile}{app.lastCompile.engine} · {(app.lastCompile.duration_ms / 1000).toFixed(1)}s{/if}
     </span>
+    <button class="close" aria-label="收起面板（⌘J）" title="收起面板（⌘J）" onclick={() => app.togglePanel()}>×</button>
   </div>
   <div class="body">
     {#if app.bottom === 'problems'}
@@ -51,7 +69,8 @@
 
 <style>
   section {
-    flex: 0 0 200px;
+    flex: 0 0 auto;
+    position: relative;
     display: flex;
     flex-direction: column;
     border-top: 1px solid var(--line);
@@ -77,6 +96,32 @@
   .hint {
     margin-left: auto;
     font-size: 12px;
+  }
+  .close {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 16px;
+    color: var(--fg2);
+  }
+  .close:hover {
+    background: var(--hover);
+    color: var(--fg);
+  }
+  .resizer {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    cursor: row-resize;
+    z-index: 5;
+  }
+  .resizer:hover,
+  .resizer:active {
+    background: var(--accent);
+    opacity: 0.4;
   }
   .body {
     flex: 1;

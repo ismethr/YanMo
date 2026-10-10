@@ -1,17 +1,21 @@
 <script lang="ts">
-  import { app, PDF_TAB } from '../lib/store.svelte';
+  import { app, PDF_TAB, IMAGE_TAB } from '../lib/store.svelte';
+  import Thumb from './Thumb.svelte';
   import CodeEditor from './CodeEditor.svelte';
   import PdfViewer from './PdfViewer.svelte';
   import Icon from './Icon.svelte';
 
-  const name = (p: string) => (p === PDF_TAB ? 'main.pdf' : p.split('/').pop()!);
-  let crumbs = $derived(app.active && app.active !== PDF_TAB ? app.active.split('/') : []);
+  let pdfName = $derived(`${(app.project?.main ?? 'main.tex').split('/').pop()!.replace(/\.tex$/, '')}.pdf`);
+  const isText = (p: string | null) => !!p && !p.startsWith('yanmo://');
+  const name = (p: string) => (p === PDF_TAB ? pdfName : p.split('/').pop()!);
+  let imagePath = $derived(app.active?.startsWith(IMAGE_TAB) ? app.active.slice(IMAGE_TAB.length) : null);
+  let crumbs = $derived(isText(app.active) ? app.active!.split('/') : []);
   let hasError = (p: string) => app.issuesFor(p).some((i) => i.severity === 'error');
   // 切到 PDF 时编辑器只隐藏不销毁，保留撤销历史与光标
   let textTab = $state<string | null>(null);
   $effect(() => {
-    if (app.active && app.active !== PDF_TAB) textTab = app.active;
-    else if (!app.active || !app.tabs.includes(textTab ?? '')) textTab = app.tabs.find((t) => t !== PDF_TAB) ?? null;
+    if (isText(app.active)) textTab = app.active;
+    else if (!app.active || !app.tabs.includes(textTab ?? '')) textTab = app.tabs.find(isText) ?? null;
   });
 </script>
 
@@ -20,7 +24,7 @@
     {#each app.tabs as t (t)}
       <div class="tab" class:on={app.active === t} role="presentation">
         <button role="tab" aria-selected={app.active === t} onclick={() => (app.active = t)}>
-          {#if t === PDF_TAB}<Icon name="pdf" size={13} />{/if}
+          {#if t === PDF_TAB}<Icon name="pdf" size={13} />{:else if t.startsWith(IMAGE_TAB)}<Icon name="assets" size={13} />{/if}
           <span class:err={hasError(t)}>{name(t)}</span>
         </button>
         <button class="x" aria-label="关闭 {name(t)}" onclick={() => app.closeTab(t)}>
@@ -34,7 +38,7 @@
   </div>
 
   {#if app.active === PDF_TAB && !app.pdf}
-    <div class="crumbs">main.pdf</div>
+    <div class="crumbs">{pdfName}</div>
     <div class="pdf">
       <div class="paper">
         <p class="strong">还没有 PDF</p>
@@ -44,6 +48,11 @@
     </div>
   {:else if app.active === PDF_TAB}
     <!-- PDF 查看器在下方常驻渲染 -->
+  {:else if imagePath}
+    <div class="crumbs">{imagePath.split('/').join(' › ')}</div>
+    <div class="image-view">
+      {#key imagePath}<Thumb path={imagePath} width={900} height={640} fallback="加载中…" />{/key}
+    </div>
   {:else if app.active}
     <div class="crumbs">
       {#each crumbs as c, i (i)}{#if i}<span aria-hidden="true">›</span>{/if}<span>{c}</span>{/each}
@@ -62,7 +71,7 @@
     <div class="viewer" class:hidden={app.active !== PDF_TAB}><PdfViewer /></div>
   {/if}
   {#if textTab}
-    <div class="editor" class:hidden={app.active === PDF_TAB}><CodeEditor path={textTab} /></div>
+    <div class="editor" class:hidden={!isText(app.active)}><CodeEditor path={textTab} /></div>
   {/if}
 </section>
 
@@ -151,6 +160,16 @@
   }
   .hidden {
     display: none !important;
+  }
+  .image-view {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pdfbg);
+    padding: 24px;
   }
   .viewer {
     flex: 1;

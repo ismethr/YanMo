@@ -42,6 +42,15 @@ pub(crate) fn register(r: &mut Registry) {
         export_docx,
     );
     r.register(
+        meta(
+            "file.base64",
+            "读取二进制文件（图片、PDF）",
+            path_param.clone(),
+            false,
+        ),
+        file_base64,
+    );
+    r.register(
         meta("check.run", "检查项目问题", none.clone(), false),
         check_run,
     );
@@ -238,7 +247,22 @@ fn project_tree(ws: &mut Workspace, _: Value) -> CommandResult {
 
 fn project_index(ws: &mut Workspace, _: Value) -> CommandResult {
     let index = ws.index()?;
-    let assets: Vec<_> = index.assets().collect();
+    // 附上 \includegraphics 解析后的项目内路径，供缩略图使用
+    let assets: Vec<Value> = index
+        .assets()
+        .map(|a| {
+            let mut v = serde_json::to_value(a).unwrap_or(Value::Null);
+            let paths: Vec<Option<PathBuf>> = a
+                .files
+                .iter()
+                .map(|f| index.resolve_graphic(&f.to_string_lossy()))
+                .collect();
+            if let Value::Object(m) = &mut v {
+                m.insert("paths".into(), json!(paths));
+            }
+            v
+        })
+        .collect();
     Ok(json!({
         "main": index.main,
         "total_words": index.total_words(),
@@ -268,11 +292,31 @@ fn check_run(ws: &mut Workspace, _: Value) -> CommandResult {
             v
         })
         .collect();
+    // 标出真正未被任何文档引用的条目（与问题列表一致，考虑了补充材料等兄弟文档）
+    let unused: std::collections::HashSet<&str> = report
+        .issues
+        .iter()
+        .filter_map(|i| match i {
+            ym_check::Issue::UnusedBibEntry { key, .. } => Some(key.as_str()),
+            _ => None,
+        })
+        .collect();
+    let bib: Vec<Value> = report
+        .bib
+        .iter()
+        .map(|e| {
+            let mut v = serde_json::to_value(e).unwrap_or(Value::Null);
+            if let Value::Object(m) = &mut v {
+                m.insert("unused".into(), json!(unused.contains(e.key.as_str())));
+            }
+            v
+        })
+        .collect();
     Ok(json!({
         "errors": report.count(ym_check::Severity::Error),
         "warnings": report.count(ym_check::Severity::Warning),
         "issues": issues,
-        "bib": report.bib,
+        "bib": bib,
     }))
 }
 
@@ -280,6 +324,37 @@ fn file_read(ws: &mut Workspace, p: Value) -> CommandResult {
     let PathParam { path } = params(p)?;
     let text = fs::read_to_string(ws.resolve(&path)?)?;
     Ok(json!({ "path": path, "text": text }))
+}
+
+/// 读取图片等二进制文件，供缩略图与预览使用；超过 50MB 的文件拒绝读取。
+fn file_base64(ws: &mut Workspace, p: Value) -> CommandResult {
+    use base64::Engine as _;
+    let PathParam { path } = params(p)?;
+    let abs = ws.resolve(&path)?;
+    let size = fs::metadata(&abs)?.len();
+    if size > 50 * 1024 * 1024 {
+        return Err(CommandError::Failed(format!(
+            "文件过大（{} MB）",
+            size / 1024 / 1024
+        )));
+    }
+    let mime = match abs
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("png") => "image/png",
+        Some("jpg" | "jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("svg") => "image/svg+xml",
+        Some("pdf") => "application/pdf",
+        _ => "application/octet-stream",
+    };
+    let bytes = fs::read(&abs)?;
+    Ok(
+        json!({ "path": path, "mime": mime, "base64": base64::engine::general_purpose::STANDARD.encode(bytes) }),
+    )
 }
 
 fn file_write(ws: &mut Workspace, p: Value) -> CommandResult {

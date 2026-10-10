@@ -45,6 +45,9 @@
     } else if (k === 'i') {
       e.preventDefault();
       app.aiOpen = !app.aiOpen;
+    } else if (k === 'j' && !e.altKey) {
+      e.preventDefault();
+      app.togglePanel();
     } else if (k === 'b') {
       e.preventDefault();
       void app.compile();
@@ -65,7 +68,7 @@
       <Sidebar />
       <main>
         <EditorArea />
-        <BottomPanel />
+        {#if app.layout.panelOpen}<BottomPanel />{/if}
       </main>
       {#if app.aiOpen}<AiPanel />{/if}
     </div>

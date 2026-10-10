@@ -5,6 +5,7 @@ import type {
   CheckResult,
   CompileOutput,
   ExportOutput,
+  Section,
   Issue,
   PdfRect,
   ProjectIndex,
@@ -18,6 +19,8 @@ export type Activity = 'files' | 'outline' | 'assets' | 'bib';
 
 /** PDF 预览标签页的固定 ID（与真实文件路径区分开）。 */
 export const PDF_TAB = 'yanmo://pdf';
+/** 图片预览标签页的 ID 前缀 */
+export const IMAGE_TAB = 'yanmo://image/';
 
 interface Doc {
   text: string;
@@ -26,6 +29,58 @@ interface Doc {
 
 const AUTOSAVE_MS = 800;
 const RECENT_KEY = 'yanmo.recent';
+const LAYOUT_KEY = 'yanmo.layout';
+
+interface Layout {
+  sidebarWidth: number;
+  panelHeight: number;
+  panelOpen: boolean;
+}
+
+function loadLayout(): Layout {
+  const fallback = { sidebarWidth: 272, panelHeight: 200, panelOpen: true };
+  try {
+    return { ...fallback, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') };
+  } catch {
+    return fallback;
+  }
+}
+
+/** 带编号与聚合字数的大纲节点 */
+export interface OutlineRow {
+  id: string;
+  number: string;
+  title: string;
+  depth: number;
+  file: string;
+  line: number;
+  /** 本节及所有小节的字数 */
+  total: number;
+  hasChildren: boolean;
+  parents: string[];
+}
+
+function flattenOutline(sections: Section[], depth = 0, prefix = '', parents: string[] = []): OutlineRow[] {
+  const rows: OutlineRow[] = [];
+  let n = 0;
+  for (const s of sections) {
+    const number = s.numbered ? `${prefix}${++n}` : '';
+    const sum = (x: Section): number => x.words + x.children.reduce((a, c) => a + sum(c), 0);
+    rows.push({
+      id: s.id,
+      number,
+      title: s.title,
+      depth,
+      file: s.span.file,
+      line: s.span.line,
+      total: sum(s),
+      hasChildren: s.children.length > 0,
+      parents,
+    });
+    rows.push(...flattenOutline(s.children, depth + 1, number ? `${number}.` : prefix, [...parents, s.id]));
+  }
+  return rows;
+}
 
 function loadRecent(): string[] {
   try {
@@ -52,6 +107,49 @@ class AppState {
   reveal = $state<{ path: string; line: number; n: number } | null>(null);
   notice = $state<{ text: string; action?: { label: string; run: () => void } } | null>(null);
   recent = $state<string[]>(loadRecent());
+
+  // 布局（按用户记住）
+  layout = $state<Layout>(loadLayout());
+
+  /** 打开底部面板并切到指定页 */
+  showPanel(tab: 'problems' | 'log') {
+    this.bottom = tab;
+    if (!this.layout.panelOpen) {
+      this.layout.panelOpen = true;
+      this.saveLayout();
+    }
+  }
+
+  togglePanel() {
+    this.layout.panelOpen = !this.layout.panelOpen;
+    this.saveLayout();
+  }
+
+  saveLayout() {
+    try {
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(this.layout));
+    } catch {
+      /* 存储不可用时只是不记住布局 */
+    }
+  }
+
+  /** 扁平化的大纲：章节编号、层级、本节及小节的总字数 */
+  outlineRows = $derived(this.index ? flattenOutline(this.index.outline) : []);
+
+  /** 光标所在的章节 */
+  get currentSectionId(): string | null {
+    let found: string | null = null;
+    for (const r of this.outlineRows) {
+      if (r.file === this.active && r.line <= this.cursor.line) found = r.id;
+    }
+    return found;
+  }
+
+  /** 中文论文按"字"，英文按"词" */
+  get wordUnit(): string {
+    const cjk = this.outlineRows.some((r) => /[\u4e00-\u9fff]/.test(r.title));
+    return cjk ? '字' : '词';
+  }
 
   // 编译与 PDF
   toolchain = $state<Toolchain | null>(null);
@@ -135,7 +233,10 @@ class AppState {
   }
 
   async openFile(path: string, line?: number) {
-    if (path !== PDF_TAB && !(path in this.docs)) {
+    if (/\.(png|jpe?g|gif|svg|pdf|eps)$/i.test(path) && !path.startsWith('yanmo://')) {
+      path = IMAGE_TAB + path;
+    }
+    if (!path.startsWith('yanmo://') && !(path in this.docs)) {
       try {
         const { text } = await execute<{ text: string }>('file.read', { path });
         this.docs[path] = { text, saved: text };
@@ -181,7 +282,7 @@ class AppState {
   }
 
   async saveActive() {
-    if (this.active && this.active !== PDF_TAB) await this.save(this.active);
+    if (this.active && !this.active.startsWith('yanmo://')) await this.save(this.active);
   }
 
   /** 编译；编译进行中再次触发时，结束后补编一次（连续保存只多编一次）。 */
@@ -225,7 +326,7 @@ class AppState {
 
   /** 源码 → PDF：在 PDF 中高亮当前行。 */
   async forwardSync(path = this.active, line = this.cursor.line) {
-    if (!path || path === PDF_TAB) return;
+    if (!path || path.startsWith('yanmo://')) return;
     if (!this.pdf) {
       this.flash('还没有 PDF，请先编译（⌘B）');
       return;

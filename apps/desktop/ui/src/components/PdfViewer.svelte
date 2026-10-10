@@ -312,13 +312,12 @@
     <label class="sr-only" for="pdfzoom">缩放</label>
     <select id="pdfzoom" value={mode === 'custom' ? '' : mode} onchange={onPick}>
       <option value="" disabled hidden>{percent}%</option>
-      <option value="width">适合宽度</option>
-      <option value="page">适合整页</option>
+      <option value="width">适合宽度{mode === 'width' ? `（${percent}%）` : ''}</option>
+      <option value="page">适合整页{mode === 'page' ? `（${percent}%）` : ''}</option>
       {#each ZOOMS as z (z)}<option value={String(z)}>{Math.round(z * 100)}%</option>{/each}
     </select>
     <button aria-label="放大" title="放大（⌘+）" onclick={() => step(1)}>+</button>
-    <span class="pct">{percent}%</span>
-    <span class="hint">点击页面跳回源码 · 双指捏合或 ⌘ 加滚轮缩放</span>
+    <span class="hint" title="点击页面跳回源码；双指捏合、⌘ 加滚轮或 ⌘+ / ⌘- 缩放，⌘0 适合宽度">?</span>
   </div>
   <div class="scroller" bind:this={scroller} onscroll={onScroll}>
     <div class="stack" style:padding="{PAD}px" style:gap="{GAP}px">
@@ -383,11 +382,16 @@
   .grow {
     flex: 1;
   }
-  .pct {
-    min-width: 38px;
-  }
   .hint {
-    margin-left: 8px;
+    margin-left: 6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    text-align: center;
+    line-height: 14px;
+    font-size: 11px;
+    cursor: help;
   }
   .scroller {
     flex: 1;

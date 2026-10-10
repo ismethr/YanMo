@@ -37,7 +37,7 @@
       "severity": "error"
     }
   ],
-  "duration_ms": 4909,
+  "duration_ms": 4799,
   "engine": "tectonic",
   "log_tail": "error: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Package graphics Error: Division by 0.\n\nSee the graphics package documentation for explanation.\nType  H <return>  for immediate help\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Package graphics Error: Division by 0.\n\nSee the graphics package documentation for explanation.\nType  H <return>  for immediate help\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nerror: sections/method:4: Package graphics Error: Division by 0.\n\nSee the graphics package documentation for explanation.\nType  H <return>  for immediate help\nerror: sections/method:4: Unable to load picture or PDF file 'figures/arch.pdf'\nwarning: errors were issued by the TeX engine, but were ignored; use --print and/or --keep-logs for details.",
   "pdf": ".yanmo/build/main.pdf",

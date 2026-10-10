@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, PDF_TAB } from '../lib/store.svelte';
+  import { app } from '../lib/store.svelte';
   import { inTauri } from '../lib/backend';
 
   const demo = !inTauri && new URLSearchParams(location.search).has('demo');
@@ -17,10 +17,10 @@
 
 <footer>
   {#if app.project}
-    <button onclick={() => (app.bottom = 'problems')} aria-label="打开问题面板">
+    <button onclick={() => app.showPanel('problems')} aria-label="打开问题面板">
       <span>✕ {app.errors}</span><span>⚠ {app.warnings}</span>
     </button>
-    <button onclick={() => (app.bottom = 'log')} aria-label="打开编译日志">
+    <button onclick={() => app.showPanel('log')} aria-label="打开编译日志">
       {#if app.compiling}
         编译中…
       {:else if app.lastCompile}
@@ -32,11 +32,11 @@
   {/if}
   {#if !inTauri && !demo}<span class="preview">浏览器预览模式 · 示例数据</span>{/if}
   <span class="grow"></span>
-  {#if app.active && app.active !== PDF_TAB}
+  {#if app.active && !app.active.startsWith('yanmo://')}
     <span>行 {app.cursor.line}，列 {app.cursor.col}</span>
     <span>{app.isDirty(app.active) ? '未保存' : '已保存'}</span>
   {/if}
-  {#if app.index}<span>{app.index.total_words.toLocaleString()} 字</span>{/if}
+  {#if app.index}<span>{app.index.total_words.toLocaleString()} {app.wordUnit}</span>{/if}
   <span>UTF-8</span>
 </footer>
 

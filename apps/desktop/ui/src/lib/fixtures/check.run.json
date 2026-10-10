@@ -22,7 +22,8 @@
         "file": "refs.bib",
         "line": 1,
         "start": 0
-      }
+      },
+      "unused": false
     },
     {
       "citations": [],
@@ -38,7 +39,8 @@
         "file": "refs.bib",
         "line": 8,
         "start": 173
-      }
+      },
+      "unused": true
     }
   ],
   "errors": 4,

@@ -325,6 +325,7 @@ fn build_outline(
             level: heading.level,
             title: heading.title.clone(),
             label: heading.label.clone(),
+            numbered: !heading.starred,
             span: heading.span.clone(),
             words: *words,
             children,

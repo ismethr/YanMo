@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { app } from '../lib/store.svelte';
-  import type { Asset, Section, TreeNode } from '../lib/types';
+  import type { Asset, TreeNode } from '../lib/types';
   import Icon from './Icon.svelte';
+  import Thumb from './Thumb.svelte';
 
-  let collapsed = $state<Record<string, boolean>>({});
+  // 文件夹默认折叠（图片等资源目录往往很长），点开后记住
+  let expanded = $state<Record<string, boolean>>({});
 
   function badge(path: string) {
     const list = app.issuesFor(path);
@@ -12,9 +15,8 @@
   }
 
   function openNode(n: TreeNode) {
-    if (n.kind === 'dir') collapsed[n.path] = !collapsed[n.path];
-    else if (n.kind === 'tex' || n.kind === 'bib' || n.kind === 'other') void app.openFile(n.path);
-    else app.flash('图片预览将在后续版本支持');
+    if (n.kind === 'dir') expanded[n.path] = !expanded[n.path];
+    else void app.openFile(n.path);
   }
 
   const kindName: Record<Asset['kind'], string> = {
@@ -25,16 +27,87 @@
     listing: '代码',
   };
 
+  // 图表资产按类型分组并编号（图、表按出现顺序编号，与 LaTeX 默认一致；公式只列带 label 的）
+  const kindOrder: Asset['kind'][] = ['figure', 'table', 'algorithm', 'listing', 'equation'];
+  let groups = $derived(
+    kindOrder
+      .map((kind) => ({
+        kind,
+        items: (app.index?.assets ?? [])
+          .filter((a) => a.kind === kind)
+          .map((a, i) => ({ ...a, no: kind === 'equation' ? '' : `${kindName[kind]} ${i + 1}` })),
+      }))
+      .filter((g) => g.items.length),
+  );
+  let assetFolded = $state<Record<string, boolean>>({ equation: true });
+
+  /** 把 BibTeX 字段转成可读文本：去掉保护大小写的花括号、常见转义与破折号 */
+  function tex(s: string | undefined): string {
+    return (s ?? '')
+      .replace(/\\(?:textit|emph|textbf|mathrm)\s*/g, '')
+      .replace(/\\([&%$#_])/g, '$1')
+      .replace(/[{}]/g, '')
+      .replace(/---/g, '—')
+      .replace(/--/g, '–')
+      .replace(/~/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function authors(raw: string | undefined): string {
+    const list = tex(raw).split(/\s+and\s+/i).filter(Boolean);
+    if (!list.length) return '';
+    const last = (a: string) => (a.includes(',') ? a.split(',')[0] : a.split(' ').pop()!).trim();
+    if (list.length === 1) return last(list[0]);
+    if (list.length === 2 && !/others/i.test(list[1])) return `${last(list[0])} & ${last(list[1])}`;
+    return `${last(list[0])} et al.`;
+  }
+
   let bibQuery = $state('');
+  let bibFilter = $state<'all' | 'unused'>('all');
+  let unusedCount = $derived((app.check?.bib ?? []).filter((e) => e.unused).length);
   let bib = $derived(
     (app.check?.bib ?? []).filter((e) => {
+      if (bibFilter === 'unused' && !e.unused) return false;
       const q = bibQuery.trim().toLowerCase();
-      return !q || e.key.toLowerCase().includes(q) || (e.fields.title ?? '').toLowerCase().includes(q);
+      return (
+        !q ||
+        e.key.toLowerCase().includes(q) ||
+        tex(e.fields.title).toLowerCase().includes(q) ||
+        tex(e.fields.author).toLowerCase().includes(q)
+      );
     }),
   );
   let undefinedCites = $derived(app.check?.issues.filter((i) => i.code === 'undefined_cite') ?? []);
-  let target = 6000;
-  let words = $derived(app.index?.total_words ?? 0);
+  // 大纲：折叠状态、可见行、当前章节跟随光标
+  let folded = $state<Record<string, boolean>>({});
+  let rows = $derived(app.outlineRows.filter((r) => !r.parents.some((p) => folded[p])));
+  let sectionCount = $derived(app.outlineRows.length);
+  let outlineEl: HTMLDivElement | undefined = $state();
+
+  $effect(() => {
+    const id = app.currentSectionId;
+    if (!id || !outlineEl) return;
+    void tick().then(() => outlineEl?.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' }));
+  });
+
+  const fmt = (n: number) => n.toLocaleString();
+
+  // 侧栏宽度拖拽
+  function startResize(e: PointerEvent) {
+    const startX = e.clientX;
+    const startW = app.layout.sidebarWidth;
+    const move = (ev: PointerEvent) => {
+      app.layout.sidebarWidth = Math.min(520, Math.max(200, startW + ev.clientX - startX));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      app.saveLayout();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
 </script>
 
 {#snippet tree(nodes: TreeNode[], depth: number)}
@@ -42,31 +115,22 @@
     {@const b = badge(n.path)}
     <button class="row" class:on={app.active === n.path} style:padding-left="{8 + depth * 14}px" onclick={() => openNode(n)}>
       {#if n.kind === 'dir'}
-        <span class="twist"><Icon name={collapsed[n.path] ? 'chevron' : 'chevronDown'} size={14} /></span>
+        <span class="twist"><Icon name={expanded[n.path] ? 'chevronDown' : 'chevron'} size={14} /></span>
       {:else}
         <span class="ext ext-{n.kind}">{n.kind === 'tex' ? 'TeX' : n.kind === 'bib' ? 'bib' : n.kind === 'image' ? 'img' : ''}</span>
       {/if}
       <span class="name">{n.name}</span>
+      {#if n.path === app.project?.main}<span class="main-tag" title="主文件">主</span>{/if}
       {#if app.isDirty(n.path)}<span class="dirty" title="未保存">●</span>{/if}
       {#if b}<span class="badge" class:err={b.err}>{b.n}</span>{/if}
     </button>
-    {#if n.children && !collapsed[n.path]}{@render tree(n.children, depth + 1)}{/if}
+    {#if n.children && expanded[n.path]}{@render tree(n.children, depth + 1)}{/if}
   {/each}
 {/snippet}
 
-{#snippet outline(sections: Section[], depth: number)}
-  {#each sections as s (s.id)}
-    <button class="row" style:padding-left="{10 + depth * 14}px" onclick={() => app.openFile(s.span.file, s.span.line)}>
-      <span class="name" class:strong={depth === 0}>{s.title}</span>
-      <span class="count">{s.words} 字</span>
-    </button>
-    {@render outline(s.children, depth + 1)}
-  {/each}
-{/snippet}
-
-<aside aria-label="侧栏">
+<aside aria-label="侧栏" style:width="{app.layout.sidebarWidth}px">
   {#if app.activity === 'files'}
-    <div class="sec-h">资源管理器 · {app.project?.name}</div>
+    <div class="sec-h">资源管理器 <span class="proj">{app.project?.name}</span></div>
     {@render tree(app.tree, 0)}
   {:else if app.activity === 'outline'}
     <div class="sec-h">论文大纲</div>
@@ -79,29 +143,69 @@
       </div>
     {/if}
     {#if app.index}
-      <div class="progress">
-        <div class="muted pr"><span>全文 {words} 字</span><span>目标 {target.toLocaleString()}</span></div>
-        <div class="bar"><div style:width="{Math.min(100, (words / target) * 100)}%"></div></div>
+      <div class="summary muted">
+        {sectionCount} 节 · 共 {fmt(app.index.total_words)} {app.wordUnit}
       </div>
-      {#if app.index.front_words}<div class="row muted">（前置内容）<span class="count">{app.index.front_words} 字</span></div>{/if}
-      {@render outline(app.index.outline, 0)}
+      <div class="outline" bind:this={outlineEl}>
+        {#each rows as r (r.id)}
+          <div
+            class="orow"
+            class:top={r.depth === 0}
+            class:current={app.currentSectionId === r.id}
+            data-id={r.id}
+            style:padding-left="{6 + r.depth * 14}px"
+          >
+            {#if r.hasChildren}
+              <button class="fold" aria-label={folded[r.id] ? '展开' : '折叠'} onclick={() => (folded[r.id] = !folded[r.id])}>
+                <Icon name={folded[r.id] ? 'chevron' : 'chevronDown'} size={12} />
+              </button>
+            {:else}
+              <span class="fold"></span>
+            {/if}
+            <button class="otitle" title="{r.number} {r.title} · {fmt(r.total)} {app.wordUnit}" onclick={() => app.openFile(r.file, r.line)}>
+              {#if r.number}<span class="num">{r.number}</span>{/if}
+              <span class="name">{r.title}</span>
+              {#if r.depth === 0 && r.total > 0}<span class="count">{fmt(r.total)}</span>{/if}
+            </button>
+          </div>
+        {/each}
+      </div>
       {#if !app.index.outline.length}<p class="empty">还没有章节。写下 \section{'{'}…{'}'} 后会出现在这里。</p>{/if}
     {:else}
       <p class="empty">没有找到主文件（含 \documentclass 的 .tex），无法生成大纲。</p>
     {/if}
   {:else if app.activity === 'assets'}
     <div class="sec-h">图表资产</div>
-    {#each app.index?.assets ?? [] as a (a.span.file + a.span.start)}
-      <button class="asset" onclick={() => app.openFile(a.span.file, a.span.line)}>
-        <span class="thumb">{kindName[a.kind]}</span>
-        <span class="meta">
-          <span class="strong">{a.caption ?? kindName[a.kind]}</span>
-          <span class="mono label">{a.label ?? '（无 label）'}</span>
-          <span class={a.references.length ? 'muted' : 'c-warn'}>
-            {a.references.length ? `被引用 ${a.references.length} 次` : '未被引用'}{a.files.length ? ` · ${a.files.join(', ')}` : ''}
-          </span>
-        </span>
+    {#each groups as g (g.kind)}
+      <button class="ghead" onclick={() => (assetFolded[g.kind] = !assetFolded[g.kind])}>
+        <Icon name={assetFolded[g.kind] ? 'chevron' : 'chevronDown'} size={12} />
+        <span>{kindName[g.kind]}</span>
+        <span class="count">{g.items.length}</span>
       </button>
+      {#if !assetFolded[g.kind]}
+        {#each g.items as a (a.span.file + a.span.start)}
+          <button class="asset" onclick={() => app.openFile(a.span.file, a.span.line)}>
+            {#if g.kind === 'figure'}
+              <Thumb path={a.paths?.find((p) => p) ?? null} fallback={a.files.length ? '…' : '图'} />
+            {/if}
+            <span class="meta">
+              <span class="line1">
+                {#if a.no}<span class="no">{a.no}</span>{/if}
+                <span class="cap" title={a.caption ?? ''}>{a.caption ?? a.label ?? kindName[g.kind]}</span>
+              </span>
+              <span class="line2">
+                {#if a.label}<span class="mono label">{a.label}</span>{/if}
+                {#if a.references.length}
+                  <span class="muted">引用 {a.references.length} 次</span>
+                {:else if g.kind !== 'equation'}
+                  <span class="c-warn">未被引用</span>
+                {/if}
+                {#if a.paths?.some((p) => p === null)}<span class="c-err">图片缺失</span>{/if}
+              </span>
+            </span>
+          </button>
+        {/each}
+      {/if}
     {:else}
       <p class="empty">还没有 figure / table / 带 label 的公式。</p>
     {/each}
@@ -109,7 +213,11 @@
     <div class="sec-h">文献库</div>
     <div class="search">
       <label class="sr-only" for="bibq">搜索文献</label>
-      <input id="bibq" placeholder="搜索 key 或标题" bind:value={bibQuery} />
+      <input id="bibq" placeholder="搜索 key、标题或作者" bind:value={bibQuery} />
+      <div class="chips" role="group" aria-label="筛选">
+        <button class="chip" class:on={bibFilter === 'all'} onclick={() => (bibFilter = 'all')}>全部 {app.check?.bib.length ?? 0}</button>
+        <button class="chip" class:on={bibFilter === 'unused'} onclick={() => (bibFilter = 'unused')} disabled={!unusedCount}>未使用 {unusedCount}</button>
+      </div>
     </div>
     {#each undefinedCites as u (u.key + String(u.line))}
       <button class="bibr" onclick={() => u.file && app.openFile(u.file, u.line ?? 1)}>
@@ -121,18 +229,27 @@
       <button class="bibr" onclick={() => app.openFile(e.span.file, e.span.line)}>
         <span class="bk">
           <span class="mono key">{e.key}</span>
-          <span class="tag {e.citations.length ? 'c-ok' : 'c-warn'}">{e.citations.length ? `引用 ${e.citations.length} 次` : '未使用'}</span>
+          {#if e.citations.length}
+            <span class="tag muted">引用 {e.citations.length}</span>
+          {:else if e.unused}
+            <span class="tag c-warn">未使用</span>
+          {:else}
+            <span class="tag muted" title="正文未引用，但同目录的其他文档（如补充材料）引用了它">其他文档引用</span>
+          {/if}
         </span>
-        <span class="title">{e.fields.title ?? '（无标题）'}</span>
-        <span class="muted small">{[e.fields.author?.split(' and ')[0], e.fields.booktitle ?? e.fields.journal, e.fields.year].filter(Boolean).join(' · ')}</span>
+        <span class="title">{tex(e.fields.title) || '（无标题）'}</span>
+        <span class="muted small">{[authors(e.fields.author), e.fields.year].filter(Boolean).join(' · ')}{e.fields.journal || e.fields.booktitle ? ` · ${tex(e.fields.journal ?? e.fields.booktitle)}` : ''}</span>
       </button>
+    {:else}
+      <p class="empty">{bibQuery ? '没有匹配的文献' : '项目没有引用 .bib 文件'}</p>
     {/each}
   {/if}
 </aside>
+<div class="resizer" role="separator" aria-orientation="vertical" aria-label="调整侧栏宽度" onpointerdown={startResize}></div>
 
 <style>
   aside {
-    flex: 0 0 264px;
+    flex: 0 0 auto;
     background: var(--bg2);
     border-right: 1px solid var(--line);
     overflow: auto;
@@ -184,13 +301,76 @@
   .badge.err {
     background: var(--err);
   }
-  .count {
-    margin-left: auto;
-    font-size: 12px;
-    color: var(--fg2);
+  .resizer {
+    flex: 0 0 4px;
+    margin-left: -4px;
+    cursor: col-resize;
+    position: relative;
+    z-index: 5;
   }
-  .progress {
-    padding: 0 12px 10px;
+  .resizer:hover,
+  .resizer:active {
+    background: var(--accent);
+    opacity: 0.4;
+  }
+  .summary {
+    padding: 0 12px 8px;
+    font-size: 12px;
+  }
+  .orow {
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    padding-right: 10px;
+  }
+  .orow:hover {
+    background: var(--hover);
+  }
+  .orow.current {
+    background: var(--active);
+  }
+  .fold {
+    flex: 0 0 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fg3);
+    border-radius: 3px;
+  }
+  button.fold:hover {
+    color: var(--fg);
+  }
+  .otitle {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 0;
+  }
+  .otitle .name {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+  }
+  .orow.top .otitle {
+    font-weight: 500;
+  }
+  .num {
+    flex: 0 0 auto;
+    color: var(--fg3);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+  }
+  .count {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding-left: 8px;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--fg3);
+    font-variant-numeric: tabular-nums;
   }
   .main-pick {
     display: flex;
@@ -209,22 +389,6 @@
     color: var(--fg);
     font: inherit;
   }
-  .pr {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-  }
-  .bar {
-    height: 4px;
-    border-radius: 2px;
-    background: var(--line);
-    margin-top: 6px;
-    overflow: hidden;
-  }
-  .bar div {
-    height: 4px;
-    background: var(--accent);
-  }
   .empty {
     margin: 8px 12px;
     color: var(--fg2);
@@ -241,24 +405,84 @@
   .bibr:hover {
     background: var(--hover);
   }
-  .thumb {
-    flex: 0 0 52px;
-    height: 40px;
-    border-radius: 4px;
-    border: 1px solid var(--line);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    color: var(--fg2);
-    background: var(--bg);
-  }
   .meta {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
+    flex: 1;
     font-size: 12px;
+  }
+  .line1 {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+  }
+  .no {
+    flex: 0 0 auto;
+    color: var(--fg2);
+    font-weight: 500;
+  }
+  .cap {
+    min-width: 0;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.4;
+  }
+  .line2 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-size: 11px;
+  }
+  .ghead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 12px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fg2);
+  }
+  .ghead .count {
+    margin-left: 0;
+    padding-left: 0;
+  }
+  .chips {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .chips .chip {
+    cursor: pointer;
+    padding: 2px 9px;
+  }
+  .chips .chip.on {
+    background: var(--active);
+    color: var(--fg);
+    border-color: var(--fg3);
+  }
+  .chips .chip[disabled] {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .proj {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  .main-tag {
+    flex: 0 0 auto;
+    font-size: 10px;
+    padding: 0 4px;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    color: var(--fg2);
   }
   .label {
     color: var(--tk-label);

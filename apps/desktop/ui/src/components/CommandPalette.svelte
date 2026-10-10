@@ -19,12 +19,13 @@
     { id: 'synctex.forward', title: '在 PDF 中定位当前行', key: '⌥⌘J', run: () => app.forwardSync() },
     { id: 'export.docx', title: '导出为 Word（.docx）', run: () => app.exportDocx() },
     { id: 'compile.auto', title: '切换：保存后自动编译', run: () => { app.autoCompile = !app.autoCompile; app.flash(app.autoCompile ? '已开启保存后自动编译' : '已关闭保存后自动编译'); } },
-    { id: 'check.run', title: '重新检查项目', run: () => { app.bottom = 'problems'; void app.refresh(); } },
+    { id: 'check.run', title: '重新检查项目', run: () => { app.showPanel('problems'); void app.refresh(); } },
     { id: 'view.outline', title: '显示大纲', run: () => (app.activity = 'outline') },
     { id: 'view.files', title: '显示文件', run: () => (app.activity = 'files') },
     { id: 'view.assets', title: '显示图表资产', run: () => (app.activity = 'assets') },
     { id: 'view.bib', title: '显示文献库', run: () => (app.activity = 'bib') },
     { id: 'view.open_pdf', title: '打开 PDF 预览', run: () => app.openFile(PDF_TAB) },
+    { id: 'view.toggle_panel', title: '切换底部面板', key: '⌘J', run: () => app.togglePanel() },
     { id: 'view.toggle_ai', title: '切换 AI 面板', key: '⌘I', run: () => (app.aiOpen = !app.aiOpen) },
   ];
 

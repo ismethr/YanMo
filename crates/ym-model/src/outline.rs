@@ -31,8 +31,15 @@ pub struct Section {
     pub level: SectionLevel,
     pub title: String,
     pub label: Option<String>,
+    /// 是否参与编号（`\section*` 等带星号的为 false）
+    #[serde(default = "yes")]
+    pub numbered: bool,
     pub span: SourceSpan,
     /// 本节正文字数（不含子节）
     pub words: u32,
     pub children: Vec<Section>,
+}
+
+fn yes() -> bool {
+    true
 }

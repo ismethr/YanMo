@@ -7,6 +7,9 @@
       ],
       "kind": "figure",
       "label": "fig:arch",
+      "paths": [
+        null
+      ],
       "references": [],
       "span": {
         "end": 225,
@@ -20,6 +23,7 @@
       "files": [],
       "kind": "equation",
       "label": "sec:intro",
+      "paths": [],
       "references": [],
       "span": {
         "end": 308,
@@ -48,6 +52,7 @@
       "id": "sec:intro",
       "label": "sec:intro",
       "level": "section",
+      "numbered": true,
       "span": {
         "end": 16,
         "file": "sections/intro.tex",
@@ -62,6 +67,7 @@
       "id": "sec:method",
       "label": "sec:method",
       "level": "section",
+      "numbered": true,
       "span": {
         "end": 16,
         "file": "sections/method.tex",

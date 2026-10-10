@@ -12,6 +12,8 @@ export interface Section {
   level: 'part' | 'chapter' | 'section' | 'subsection' | 'subsubsection' | 'paragraph';
   title: string;
   label: string | null;
+  /** \section* 等不编号的为 false */
+  numbered: boolean;
   span: SourceSpan;
   words: number;
   children: Section[];
@@ -22,6 +24,8 @@ export interface Asset {
   label: string | null;
   caption: string | null;
   files: string[];
+  /** files 对应的项目内路径（找不到时为 null） */
+  paths?: (string | null)[];
   span: SourceSpan;
   references: SourceSpan[];
 }
@@ -67,7 +71,10 @@ export interface BibEntry {
   entry_type: string;
   fields: Record<string, string>;
   span: SourceSpan;
+  /** 本文档中的引用位置 */
   citations: SourceSpan[];
+  /** 没有被任何文档引用（考虑了补充材料等同目录文档） */
+  unused?: boolean;
 }
 
 export interface CheckResult {

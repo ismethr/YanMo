@@ -86,7 +86,13 @@ pub fn plain(s: &str) -> String {
             c => out.push(c),
         }
     }
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
+    out.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .replace("---", "—")
+        .replace("--", "–")
+        .replace("``", "“")
+        .replace("''", "”")
 }
 
 /// 跳过紧随其后的 `*`、`[...]` 与 `{...}` 参数。
@@ -125,6 +131,10 @@ mod tests {
     fn plain_strips_markup() {
         assert_eq!(plain(r"Our \textbf{Fast} Model~\cite{x}"), "Our Fast Model");
         assert_eq!(plain(r"整体架构\label{fig:a}"), "整体架构");
+        assert_eq!(
+            plain(r"The H3--XGBoost ``framework'' --- 1990--2025"),
+            "The H3–XGBoost “framework” — 1990–2025"
+        );
         assert_eq!(
             plain(r"50\% of \LaTeX{} users % comment"),
             "50% of LaTeX users"
