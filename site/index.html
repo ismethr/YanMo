@@ -6,185 +6,32 @@
 <title>研墨 YanMo — 本地优先的 AI LaTeX 论文工作台</title>
 <meta name="description" content="研墨 YanMo 是开源、本地优先的 LaTeX 论文写作与编译桌面应用：清晰的论文结构、图表与文献管理，以及每一处修改都可控的 AI 辅助。">
 <link rel="canonical" href="https://yanmo.ink/">
+<link rel="alternate" hreflang="zh-CN" href="https://yanmo.ink/">
+<link rel="alternate" hreflang="en" href="https://yanmo.ink/en/">
+<link rel="alternate" hreflang="x-default" href="https://yanmo.ink/">
+<script>
+  // 首次访问且浏览器语言不是中文时转到英文版；手动切换过语言则以手动选择为准
+  (function () {
+    try {
+      var pref = localStorage.getItem('yanmo-lang');
+      if (!pref && !/bot|crawl|spider|slurp/i.test(navigator.userAgent)) {
+        var langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']).join(',');
+        if (langs && !/(^|,)zh/i.test(langs)) pref = 'en';
+      }
+      if (pref === 'en') location.replace('en/' + location.hash);
+    } catch (e) {}
+  })();
+</script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <meta property="og:title" content="研墨 YanMo — 本地优先的 AI LaTeX 论文工作台">
 <meta property="og:description" content="开源的 LaTeX 论文写作与编译桌面应用：结构清晰，引用可靠，修改可控。">
 <meta property="og:image" content="https://yanmo.ink/assets/icon-512.png">
 <meta property="og:url" content="https://yanmo.ink/">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_US">
 <meta name="theme-color" content="#fbfbfa">
-<style>
-:root {
-  --bg: #fbfbfa;
-  --bg2: #f3f2ef;
-  --card: #ffffff;
-  --line: #e4e2dd;
-  --fg: #18181b;
-  --fg2: #52565f;
-  --ink: #1c1c20;
-  --ink-fg: #ffffff;
-  --term: #17171a;
-  --term-fg: #e6e6ea;
-  --ok: #2b7a4b;
-  --err: #c62f2a;
-  --warn: #9a5c00;
-  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI", sans-serif;
-  --mono: "SF Mono", Menlo, Consolas, "JetBrains Mono", "PingFang SC", monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121214;
-    --bg2: #18181b;
-    --card: #1c1c20;
-    --line: #2c2c32;
-    --fg: #ececef;
-    --fg2: #a3a6ae;
-    --ink: #ececef;
-    --ink-fg: #121214;
-    --term: #0b0b0d;
-    --ok: #5fb98a;
-    --err: #f2665f;
-    --warn: #e8a23a;
-    color-scheme: dark;
-  }
-}
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body {
-  margin: 0;
-  overflow-x: hidden;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--sans);
-  font-size: 16px;
-  line-height: 1.7;
-  -webkit-font-smoothing: antialiased;
-}
-a { color: inherit; }
-.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-
-/* 导航 */
-nav.top {
-  position: sticky; top: 0; z-index: 10;
-  background: color-mix(in srgb, var(--bg) 86%, transparent);
-  backdrop-filter: saturate(1.6) blur(14px);
-  -webkit-backdrop-filter: saturate(1.6) blur(14px);
-  border-bottom: 1px solid var(--line);
-}
-nav.top .wrap { display: flex; align-items: center; gap: 28px; height: 60px; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; text-decoration: none; letter-spacing: .01em; }
-.brand img { width: 30px; height: 30px; }
-nav.top .links { display: flex; gap: 24px; margin-left: auto; font-size: 15px; color: var(--fg2); }
-nav.top .links a { text-decoration: none; }
-nav.top .links a:hover { color: var(--fg); }
-
-/* 首屏 */
-.hero { text-align: center; padding-top: 88px; padding-bottom: 56px; }
-.hero img.logo { width: 112px; height: 112px; }
-.pill {
-  display: inline-block; margin-top: 18px; padding: 3px 12px; border-radius: 999px;
-  border: 1px solid var(--line); color: var(--fg2); font-size: 13px;
-}
-.hero h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1.15; margin: 18px 0 8px; font-weight: 700; letter-spacing: -.01em; }
-.hero h1 span { color: var(--fg2); font-weight: 500; }
-.hero .lead { font-size: clamp(19px, 2.4vw, 24px); margin: 0 0 10px; font-weight: 500; }
-.hero .sub { max-width: 640px; margin: 0 auto; color: var(--fg2); }
-.cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; max-width: 100%; padding: 10px 22px; border-radius: 12px; text-align: center; line-height: 1.35;
-  font-size: 16px; font-weight: 500; text-decoration: none; border: 1px solid var(--line); background: var(--card);
-}
-.btn:hover { border-color: var(--fg2); }
-.btn.primary { background: var(--ink); color: var(--ink-fg); border-color: var(--ink); }
-.btn.primary:hover { opacity: .88; }
-.btn.off { color: var(--fg2); cursor: default; }
-.btn.off:hover { border-color: var(--line); }
-
-/* 截图 */
-.shot { margin: 8px auto 0; max-width: 1120px; }
-.window {
-  border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--card);
-  box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 24px 64px rgba(0,0,0,.14);
-}
-.window .bar { display: flex; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--bg2); }
-.window .bar i { width: 12px; height: 12px; border-radius: 6px; background: #d4d2cc; }
-.window img { display: block; width: 100%; height: auto; }
-.caption { text-align: center; color: var(--fg2); font-size: 14px; margin-top: 14px; }
-
-section.wrap { padding-top: 96px; }
-.eyebrow { font-size: 14px; font-weight: 600; letter-spacing: .08em; color: var(--fg2); text-transform: uppercase; }
-h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.25; margin: 8px 0 14px; letter-spacing: -.01em; }
-.intro { color: var(--fg2); max-width: 680px; margin: 0 0 40px; }
-
-/* 下载 */
-.dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.dl-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 10px; }
-.dl-card h3 { margin: 0; font-size: 19px; }
-.dl-card .req { margin: 0 0 4px; color: var(--fg2); font-size: 14px; }
-.dl-card .btn { width: 100%; }
-.dl-card.mine { border-color: var(--fg); box-shadow: 0 0 0 1px var(--fg); }
-.dl-card.mine h3::after { content: "  · 推荐"; font-size: 13px; font-weight: 400; color: var(--fg2); }
-.notes { color: var(--fg2); font-size: 15px; padding-left: 20px; margin: 24px 0 0; }
-.notes li { margin: 6px 0; }
-.notes code { font-family: var(--mono); font-size: 13px; background: var(--bg2); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
-
-/* 功能 */
-.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px 24px; }
-.card svg { width: 28px; height: 28px; stroke: var(--fg); }
-.card h3 { margin: 14px 0 6px; font-size: 18px; }
-.card p { margin: 0; color: var(--fg2); font-size: 15px; }
-
-/* 终端 */
-.split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; }
-.term { background: var(--term); color: var(--term-fg); border-radius: 14px; padding: 22px 22px 20px; font-family: var(--mono); font-size: 13px; line-height: 1.75; overflow-x: auto; }
-.term .p { color: #8f93a0; }
-.term .e { color: #ff7b72; }
-.term .w { color: #e3b341; }
-.term pre { margin: 0; white-space: pre; }
-ul.ticks { list-style: none; padding: 0; margin: 0; }
-ul.ticks li { padding-left: 28px; position: relative; margin: 10px 0; }
-ul.ticks li::before { content: ""; position: absolute; left: 4px; top: 11px; width: 12px; height: 7px; border-left: 2px solid var(--fg); border-bottom: 2px solid var(--fg); transform: rotate(-45deg); }
-
-/* 原则 */
-.principles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.principles div { border-top: 2px solid var(--fg); padding-top: 14px; }
-.principles h3 { margin: 0 0 6px; font-size: 17px; }
-.principles p { margin: 0; color: var(--fg2); font-size: 15px; }
-
-/* 路线图 */
-ol.road { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--line); }
-ol.road li { position: relative; padding: 0 0 26px 28px; }
-ol.road li::before { content: ""; position: absolute; left: -7px; top: 8px; width: 12px; height: 12px; border-radius: 6px; background: var(--bg); border: 2px solid var(--fg2); }
-ol.road li.done::before { background: var(--fg); border-color: var(--fg); }
-ol.road li.now::before { background: var(--bg); border-color: var(--fg); box-shadow: 0 0 0 4px color-mix(in srgb, var(--fg) 15%, transparent); }
-ol.road b { font-size: 17px; }
-ol.road .tag { font-size: 13px; color: var(--fg2); margin-left: 8px; }
-ol.road p { margin: 2px 0 0; color: var(--fg2); font-size: 15px; }
-
-/* 结尾 */
-.end { text-align: center; padding: 110px 0 96px; }
-.end img { width: 72px; height: 72px; }
-footer { border-top: 1px solid var(--line); color: var(--fg2); font-size: 14px; }
-footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-top: 26px; padding-bottom: 40px; }
-footer .wrap span:last-child { margin-left: auto; }
-
-@media (max-width: 900px) {
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dl { grid-template-columns: minmax(0, 1fr); }
-  .principles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .split { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-}
-@media (max-width: 600px) {
-  .wrap { padding: 0 16px; }
-  nav.top .links a:not(.gh) { display: none; }
-  .hero { padding-top: 56px; padding-bottom: 40px; }
-  .grid, .principles { grid-template-columns: minmax(0, 1fr); }
-  section.wrap { padding-top: 72px; }
-  footer .wrap span:last-child { margin-left: 0; }
-}
-</style>
+<link rel="stylesheet" href="assets/site.css?v=2">
 </head>
 <body>
 
@@ -197,6 +44,7 @@ footer .wrap span:last-child { margin-left: auto; }
       <a href="#check">检查</a>
       <a href="#roadmap">路线图</a>
       <a class="gh" href="https://github.com/ismethr/YanMo">GitHub</a>
+      <a class="lang" href="en/" hreflang="en" lang="en" data-lang="en" title="English">EN</a>
     </div>
   </div>
 </nav>
@@ -344,7 +192,7 @@ sections/method.tex:2: <span class="w">warning</span>[unreferenced_asset] 图 `f
     <li class="done"><b>结构化管理增强</b><span class="tag">已完成</span><p>DOI / arXiv 一键导入、拖入或粘贴图片自动插入、图表缩略图与编号。</p></li>
     <li class="done"><b>AI 辅助</b><span class="tag">已完成</span><p>自带 Key（Claude、DeepSeek、Ollama 等）、选区润色与翻译、对比确认后才写入。</p></li>
     <li class="done"><b>v0.1 发布</b><span class="tag">已发布</span><p>macOS、Windows、Linux 安装包，内置编译引擎。</p></li>
-    <li class="now"><b>v0.2</b><span class="tag">规划中</span><p>章节拖拽重排、自动更新、安装包签名与公证、MCP 接口。</p></li>
+    <li class="now"><b>v0.2</b><span class="tag">规划中</span><p>英文界面、章节拖拽重排、自动更新、安装包签名与公证、MCP 接口。</p></li>
   </ol>
 </section>
 
@@ -364,6 +212,14 @@ sections/method.tex:2: <span class="w">warning</span>[unreferenced_asset] 图 `f
 </footer>
 
 <script>
+  // 语言切换：记住手动选择，并保留当前所在的小节
+  document.querySelectorAll('a[data-lang]').forEach(function (a) {
+    a.addEventListener('click', function (ev) {
+      try { localStorage.setItem('yanmo-lang', a.dataset.lang); } catch (e) {}
+      ev.preventDefault();
+      location.href = a.getAttribute('href') + location.hash;
+    });
+  });
   // 根据访问者的系统标出推荐的安装包；Apple 芯片在浏览器中难以可靠区分，默认推荐 Apple 芯片版
   (function () {
     var ua = navigator.userAgent || '';

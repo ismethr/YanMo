@@ -1,6 +1,6 @@
 # 官网 yanmo.ink 的托管
 
-官网是 `site/` 下的纯静态页面（不引用任何外部字体或脚本，国内可正常访问），由一台自托管的 Ubuntu 机器上的 nginx 提供，再通过 Cloudflare Tunnel 发布到公网。
+官网是 `site/` 下的纯静态页面，中文版在 `index.html`，英文版在 `en/index.html`，两者共用 `assets/site.css`（改样式后把引用处的 `?v=` 加一，避开 7 天的浏览器缓存）。首次访问时浏览器语言不是中文会自动转到英文版，手动切换后以手动选择为准。页面（不引用任何外部字体或脚本，国内可正常访问），由一台自托管的 Ubuntu 机器上的 nginx 提供，再通过 Cloudflare Tunnel 发布到公网。
 
 ## 服务器一次性配置
 
@@ -22,6 +22,7 @@ server {
     index index.html;
     charset utf-8;
     server_tokens off;
+    absolute_redirect off;  # 经隧道访问时，重定向（如 /en → /en/）不能带上内部端口 8080
 
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
