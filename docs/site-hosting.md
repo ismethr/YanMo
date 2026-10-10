@@ -57,6 +57,34 @@ YANMO_SITE_HOST=user@host sh scripts/deploy-site.sh
 
 ## Cloudflare Tunnel
 
+### 安装 cloudflared（Ubuntu / Debian）
+
+```bash
+sudo mkdir -p --mode=0755 /usr/share/keyrings
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" \
+  | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt-get update && sudo apt-get install -y cloudflared
+```
+
+如果这台机器上运行着透明代理（如 mihomo），出站 UDP 经代理不一定可用，建议固定使用 HTTP/2：
+
+```bash
+sudo mkdir -p /etc/systemd/system/cloudflared.service.d
+printf '[Service]\nEnvironment=TUNNEL_TRANSPORT_PROTOCOL=http2\n' \
+  | sudo tee /etc/systemd/system/cloudflared.service.d/yanmo.conf
+sudo systemctl daemon-reload
+```
+
+### 创建隧道并注册服务
+
+1. 域名先接入 Cloudflare（在注册商处把 DNS 服务器改为 Cloudflare 分配的地址，等待站点显示为已激活）。
+2. Zero Trust → Networks → Tunnels → Create a tunnel，类型选 Cloudflared，页面会给出带令牌的安装命令：
+   `sudo cloudflared service install <令牌>`。令牌等同于隧道密码，只在服务器上运行，不要提交到仓库。
+3. 运行后用 `systemctl status cloudflared` 确认服务在运行，隧道页面显示 HEALTHY。
+
+### 公网主机名
+
 在 Cloudflare Zero Trust → Networks → Tunnels 中给隧道添加 Public hostname：
 
 | 字段 | 值 |
