@@ -3,6 +3,8 @@
   import { app, PDF_TAB } from '../lib/store.svelte';
   import { listCommands } from '../lib/backend';
   import type { CommandMeta } from '../lib/types';
+  import { ai, REWRITE_LABELS } from '../lib/ai-store.svelte';
+  import type { RewriteAction } from '../lib/ai';
 
   interface Item {
     id: string;
@@ -26,6 +28,13 @@
     { id: 'view.bib', title: '显示文献库', run: () => (app.activity = 'bib') },
     { id: 'view.open_pdf', title: '打开 PDF 预览', run: () => app.openFile(PDF_TAB) },
     { id: 'view.toggle_panel', title: '切换底部面板', key: '⌘J', run: () => app.togglePanel() },
+    ...(Object.entries(REWRITE_LABELS) as [RewriteAction, string][]).map(([a, label]) => ({
+      id: `ai.${a}`,
+      title: `AI：${label}选中的文字`,
+      run: () => void ai.rewrite(a),
+    })),
+    { id: 'ai.explain_error', title: 'AI：解释编译错误', run: () => { app.aiOpen = true; void ai.explainError(); } },
+    { id: 'ai.settings', title: 'AI 设置', run: () => { app.aiOpen = true; ai.showSettings = true; } },
     { id: 'view.toggle_ai', title: '切换 AI 面板', key: '⌘I', run: () => (app.aiOpen = !app.aiOpen) },
   ];
 

@@ -1,39 +1,55 @@
-//! AI 层。
+//! AI 服务。
 //!
-//! 铁律：AI 永远只产出 `Patch`，绝不直接写文件；由 UI 展示 diff，经用户确认后
-//! 通过命令注册表应用，并进入撤销栈。
+//! 铁律：AI 只产出文本或修改建议，**从不直接写文件**。修改建议由界面以 diff 呈现，
+//! 用户接受后才作为一次普通编辑应用（可撤销）。
+//!
+//! - [`settings`]：服务商与模型设置（`~/.yanmo/ai.json`），API Key 只存系统钥匙串；
+//! - [`provider`]：Anthropic 原生 Messages 接口与 OpenAI 兼容接口的流式调用；
+//! - [`prompts`]：写作任务（润色、翻译、解释错误……）的提示词。
 
-pub mod context;
+pub mod prompts;
 pub mod provider;
+pub mod settings;
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
-/// 对单个文件的一处替换。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Edit {
-    pub file: PathBuf,
-    pub start: usize,
-    pub end: usize,
-    pub replacement: String,
+pub use provider::{stream, ChatOutcome, StreamEvent};
+pub use settings::{AiSettings, ProviderKind};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Role {
+    User,
+    Assistant,
 }
 
-/// 一次 AI 建议，可包含多处修改，用户可逐块接受或拒绝。
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Patch {
-    pub summary: String,
-    pub edits: Vec<Edit>,
+pub struct Message {
+    pub role: Role,
+    pub content: String,
 }
 
-/// 内置的选中文本操作（AI-2），提示词模板放在 `prompts/` 下，用户可覆盖。
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum QuickAction {
-    Polish,
-    Academic,
-    TranslateZhEn,
-    TranslateEnZh,
-    Shorten,
-    Expand,
-    ExplainError,
+/// 一次对话请求：系统提示词 + 多轮消息（只含文本）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatRequest {
+    pub system: String,
+    pub messages: Vec<Message>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AiError {
+    #[error("还没有设置 {0} 的 API Key")]
+    MissingKey(&'static str),
+    #[error("服务商返回错误（HTTP {status}）：{message}")]
+    Http { status: u16, message: String },
+    #[error("网络错误：{0}")]
+    Network(String),
+    #[error("模型拒绝了这个请求{0}")]
+    Refusal(String),
+    #[error("已取消")]
+    Cancelled,
+    #[error("钥匙串错误：{0}")]
+    Keychain(String),
+    #[error("{0}")]
+    Other(String),
 }

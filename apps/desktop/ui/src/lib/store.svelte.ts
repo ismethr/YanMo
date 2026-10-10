@@ -163,6 +163,18 @@ class AppState {
   exporting = $state(false);
   /** 请求编辑器在光标处插入文本；n 递增以区分多次请求 */
   insertRequest = $state<{ path: string; text: string; n: number } | null>(null);
+  /** 编辑器当前选区（只记录文本标签页） */
+  selection = $state<{ path: string; from: number; to: number; text: string } | null>(null);
+  /** 请求编辑器替换一段文本；编辑器校验原文未变后执行，并通过 resolve 返回结果 */
+  replaceRequest = $state<{
+    path: string;
+    from: number;
+    to: number;
+    expected: string;
+    text: string;
+    n: number;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
   importingBib = $state(false);
   lastExport = $state<ExportOutput | null>(null);
   #compileAgain = false;
@@ -450,6 +462,14 @@ class AppState {
     } catch (e) {
       this.flash(String(e));
     }
+  }
+
+  /** 替换 [from, to) 的文本。原文已被改动时会在文档中查找原文；找不到或不唯一则放弃并返回 false。 */
+  async replaceRange(path: string, from: number, to: number, expected: string, text: string): Promise<boolean> {
+    if (this.active !== path) await this.openFile(path);
+    return new Promise((resolve) => {
+      this.replaceRequest = { path, from, to, expected, text, n: (this.replaceRequest?.n ?? 0) + 1, resolve };
+    });
   }
 }
 

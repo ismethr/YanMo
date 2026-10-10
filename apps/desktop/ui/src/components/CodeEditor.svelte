@@ -37,9 +37,12 @@
     if (!current) return;
     if (u.docChanged) app.edit(current, u.state.doc.toString());
     if (u.docChanged || u.selectionSet) {
-      const head = u.state.selection.main.head;
-      const line = u.state.doc.lineAt(head);
-      app.cursor = { line: line.number, col: head - line.from + 1 };
+      const sel = u.state.selection.main;
+      const line = u.state.doc.lineAt(sel.head);
+      app.cursor = { line: line.number, col: sel.head - line.from + 1 };
+      app.selection = sel.empty
+        ? null
+        : { path: current, from: sel.from, to: sel.to, text: u.state.sliceDoc(sel.from, sel.to) };
     }
   });
 
@@ -93,6 +96,34 @@
       effects: EditorView.scrollIntoView(cursor, { y: 'center' }),
     });
     view.focus();
+  });
+
+  // 替换一段文本（AI 改写被接受时）。先校验原文没有被改动，避免覆盖用户之后的编辑
+  let lastReplace = 0;
+  $effect(() => {
+    const r = app.replaceRequest;
+    if (!view || !r || r.n === lastReplace || r.path !== path || current !== path) return;
+    lastReplace = r.n;
+    const doc = view.state.doc.toString();
+    let from = r.from;
+    if (doc.slice(r.from, r.to) !== r.expected) {
+      const at = doc.indexOf(r.expected);
+      if (at < 0 || doc.indexOf(r.expected, at + 1) >= 0) {
+        app.flash('原文已被修改，无法安全替换；请重新选中后再试');
+        r.resolve(false);
+        return;
+      }
+      from = at;
+    }
+    const to = from + r.expected.length;
+    view.dispatch({
+      changes: { from, to, insert: r.text },
+      selection: { anchor: from, head: from + r.text.length },
+      effects: EditorView.scrollIntoView(from, { y: 'center' }),
+      userEvent: 'input.ai',
+    });
+    view.focus();
+    r.resolve(true);
   });
 
   // 跳转到行（来自大纲、问题面板、文献等）

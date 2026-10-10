@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
+  import { ai } from '../lib/ai-store.svelte';
 
   let compileErrors = $derived(app.lastCompile?.diagnostics.filter((d) => d.severity === 'error').length ?? 0);
   const label = { error: '错误', warning: '警告', badbox: '排版' } as const;
@@ -57,6 +58,9 @@
           <span class="loc">{d.file ?? ''}{d.line ? `:${d.line}` : ''}</span>
         </button>
       {/each}
+      {#if compileErrors}
+        <button class="explain" onclick={() => { app.aiOpen = true; void ai.explainError(); }}>让 AI 解释这些错误</button>
+      {/if}
       <details>
         <summary class="muted">原始日志（末尾 40 行）</summary>
         <pre class="mono">{app.lastCompile.log_tail}</pre>
@@ -161,6 +165,14 @@
   }
   details {
     padding: 6px 14px;
+  }
+  .explain {
+    margin: 6px 14px 0;
+    font-size: 12px;
+    color: var(--tk-cmd);
+  }
+  .explain:hover {
+    text-decoration: underline;
   }
   summary {
     cursor: pointer;

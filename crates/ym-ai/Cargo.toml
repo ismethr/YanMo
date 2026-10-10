@@ -1,12 +1,16 @@
 [package]
 name = "ym-ai"
-description = "多厂商 LLM 抽象（Anthropic / OpenAI 兼容 / Ollama），上下文组装，补丁生成"
+description = "AI 服务：Anthropic（原生接口）与 OpenAI 兼容接口（DeepSeek、通义、Ollama 等）的流式对话，Key 存系统钥匙串"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-ym-model.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+ureq = "2"
+keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
+
+[dev-dependencies]
+serde_json.workspace = true
