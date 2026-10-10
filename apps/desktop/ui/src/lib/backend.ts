@@ -79,6 +79,16 @@ function preview(id: string, params: Record<string, unknown>): unknown {
       return { ...info, main: path };
     case 'export.docx':
       throw new Error('浏览器预览模式不支持导出 Word，请在桌面应用中使用');
+    case 'bib.fetch':
+      return {
+        key: 'he2016deep',
+        title: 'Deep Residual Learning for Image Recognition',
+        bibtex: '@inproceedings{he2016deep,\n  author = {He, Kaiming and others},\n  title = {Deep Residual Learning for Image Recognition},\n  year = {2016},\n}\n',
+      };
+    case 'bib.add':
+      return { key: 'he2016deep', duplicate: false, file: 'refs.bib' };
+    case 'asset.import':
+      return { path: 'figures/pasted.png', include: 'figures/pasted', label: 'fig:pasted' };
     case 'synctex.forward':
     case 'synctex.inverse':
       return null; // 预览模式没有 SyncTeX 数据

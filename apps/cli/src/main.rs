@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -236,7 +236,30 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 ExitCode::from(1)
             })
         }
-        Cmd::BibImport { .. } => bail!("ym bib-import 尚未实现（M2 后续）"),
+        Cmd::BibImport { id } => {
+            let registry = ym_commands::Registry::with_builtins();
+            let mut ws = ym_commands::Workspace::default();
+            ws.open(root)?;
+            if let Some(m) = &cli.main {
+                ws.set_main(m, false)?;
+            }
+            let out = registry.execute(&mut ws, "bib.import", serde_json::json!({ "id": id }))?;
+            if cli.json {
+                print_json(&out)?;
+            } else if out["duplicate"] == true {
+                println!("文献库中已有这篇：{}", out["key"].as_str().unwrap_or(""));
+            } else {
+                println!(
+                    "✓ 已导入 {} → {}",
+                    out["key"].as_str().unwrap_or(""),
+                    out["file"].as_str().unwrap_or("")
+                );
+                if out["needs_bibliography"] == true {
+                    println!("提示：新建了 .bib 文件，请在正文中用 \\bibliography 引入");
+                }
+            }
+            Ok(ExitCode::SUCCESS)
+        }
     }
 }
 

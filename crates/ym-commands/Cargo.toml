@@ -9,6 +9,7 @@ license.workspace = true
 ym-model.workspace = true
 ym-latex.workspace = true
 ym-check.workspace = true
+ym-bib.workspace = true
 ym-compile.workspace = true
 base64 = "0.22"
 serde.workspace = true

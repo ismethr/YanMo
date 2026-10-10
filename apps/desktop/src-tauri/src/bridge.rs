@@ -29,6 +29,17 @@ pub async fn execute(
     match id.as_str() {
         "compile.run" => return compile(&state, params).await,
         "export.docx" => return export(&state, params).await,
+        // 联网获取文献，不依赖工作区：在后台线程执行，不持锁
+        "bib.fetch" => {
+            let registry = Registry::with_builtins();
+            return tauri::async_runtime::spawn_blocking(move || {
+                registry
+                    .execute(&mut Workspace::default(), "bib.fetch", params)
+                    .map_err(|e| e.to_string())
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+        }
         _ => {}
     }
     let mut ws = state.workspace.lock().map_err(|e| e.to_string())?;

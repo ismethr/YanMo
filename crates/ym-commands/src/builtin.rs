@@ -50,6 +50,42 @@ pub(crate) fn register(r: &mut Registry) {
         ),
         file_base64,
     );
+    let id_param = json!({"type": "object", "properties": {"id": {"type": "string", "description": "DOI、arXiv 编号或链接"}}, "required": ["id"]});
+    r.register(
+        meta(
+            "bib.fetch",
+            "联网获取文献元数据（DOI / arXiv）",
+            id_param.clone(),
+            false,
+        ),
+        bib_fetch,
+    );
+    r.register(
+        meta(
+            "bib.add",
+            "把 BibTeX 条目加入项目文献库",
+            json!({"type": "object", "properties": {"bibtex": {"type": "string"}, "file": {"type": "string"}}, "required": ["bibtex"]}),
+            true,
+        ),
+        bib_add,
+    );
+    r.register(
+        meta("bib.import", "通过 DOI / arXiv 导入文献", id_param, true),
+        bib_import,
+    );
+    r.register(
+        meta(
+            "asset.import",
+            "导入图片到项目图片目录",
+            json!({"type": "object", "properties": {
+                "source": {"type": "string", "description": "本机图片的绝对路径（拖入时）"},
+                "base64": {"type": "string", "description": "图片数据（粘贴时）"},
+                "name": {"type": "string", "description": "文件名，粘贴时使用"}
+            }}),
+            true,
+        ),
+        asset_import,
+    );
     r.register(
         meta("check.run", "检查项目问题", none.clone(), false),
         check_run,
@@ -355,6 +391,234 @@ fn file_base64(ws: &mut Workspace, p: Value) -> CommandResult {
     Ok(
         json!({ "path": path, "mime": mime, "base64": base64::engine::general_purpose::STANDARD.encode(bytes) }),
     )
+}
+
+#[derive(Deserialize)]
+struct IdParam {
+    id: String,
+}
+
+fn bib_fetch(_: &mut Workspace, p: Value) -> CommandResult {
+    let IdParam { id } = params(p)?;
+    let ident = ym_bib::import::detect(&id).ok_or_else(|| {
+        CommandError::InvalidParams(format!("无法识别为 DOI 或 arXiv 编号：{id}"))
+    })?;
+    let entry = ym_bib::import::fetch(&ident).map_err(|e| CommandError::Failed(e.to_string()))?;
+    Ok(json!({
+        "key": entry.key,
+        "title": entry.field("title"),
+        "bibtex": ym_bib::import::to_bibtex(&entry),
+    }))
+}
+
+#[derive(Deserialize)]
+struct AddParam {
+    bibtex: String,
+    file: Option<String>,
+}
+
+fn bib_add(ws: &mut Workspace, p: Value) -> CommandResult {
+    let AddParam { bibtex, file } = params(p)?;
+    let parsed = ym_bib::parse(Path::new("new.bib"), &bibtex);
+    let mut entry = parsed
+        .entries
+        .into_iter()
+        .next()
+        .ok_or_else(|| CommandError::InvalidParams("没有可识别的 BibTeX 条目".into()))?;
+
+    let index = ws.index()?;
+    let (existing, _) = ym_check::load_bib(index);
+    let base = index.base_dir();
+    let bib_files: Vec<String> = index
+        .bib_files()
+        .map(|b| {
+            if b.name.ends_with(".bib") {
+                b.name.clone()
+            } else {
+                format!("{}.bib", b.name)
+            }
+        })
+        .collect();
+
+    // 查重：同一 DOI、同一 arXiv 编号，或标题相同（忽略大小写、标点与 BibTeX 花括号）视为同一篇
+    let norm = |v: Option<&str>| v.map(|s| s.trim().to_ascii_lowercase());
+    let title_key = |v: Option<&str>| {
+        v.map(|t| {
+            t.chars()
+                .filter(|c| c.is_alphanumeric())
+                .flat_map(char::to_lowercase)
+                .collect::<String>()
+        })
+        .filter(|t| t.len() >= 12)
+    };
+    let (doi, eprint, title) = (
+        norm(entry.field("doi")),
+        norm(entry.field("eprint")),
+        title_key(entry.field("title")),
+    );
+    let same = existing.iter().find(|e| {
+        (doi.is_some() && norm(e.field("doi")) == doi)
+            || (eprint.is_some() && norm(e.field("eprint")) == eprint)
+            || (title.is_some() && title_key(e.field("title")) == title)
+    });
+    if let Some(e) = same {
+        return Ok(json!({ "key": e.key, "duplicate": true, "file": e.span.file }));
+    }
+    // key 冲突时加后缀 b、c……
+    let taken = |k: &str| existing.iter().any(|e| e.key == k);
+    if taken(&entry.key) {
+        let stem = entry.key.clone();
+        entry.key = (b'b'..=b'z')
+            .map(|c| format!("{stem}{}", c as char))
+            .find(|k| !taken(k))
+            .unwrap_or_else(|| format!("{stem}x"));
+    }
+
+    let target = match file.or_else(|| bib_files.first().cloned()) {
+        Some(f) => base.join(f),
+        None => base.join("references.bib"),
+    };
+    let rel = target.to_string_lossy().replace('\\', "/");
+    let abs = ws.resolve(&rel)?;
+    let created = !abs.is_file();
+    let mut text = fs::read_to_string(&abs).unwrap_or_default();
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    if !text.is_empty() {
+        text.push('\n');
+    }
+    text.push_str(&ym_bib::import::to_bibtex(&entry));
+    fs::write(&abs, text)?;
+    ws.invalidate();
+    Ok(json!({
+        "key": entry.key,
+        "duplicate": false,
+        "file": rel,
+        "created": created,
+        // 新建的 .bib 还需要在正文里用 \bibliography 引入
+        "needs_bibliography": bib_files.is_empty(),
+    }))
+}
+
+fn bib_import(ws: &mut Workspace, p: Value) -> CommandResult {
+    let fetched = bib_fetch(ws, p)?;
+    bib_add(ws, json!({ "bibtex": fetched["bibtex"] }))
+}
+
+#[derive(Deserialize)]
+struct AssetParam {
+    source: Option<String>,
+    base64: Option<String>,
+    name: Option<String>,
+}
+
+/// 文件名转成适合 LaTeX 的形式：小写、空格与特殊字符换成连字符。
+fn slug(stem: &str) -> String {
+    let mut out = String::new();
+    for c in stem.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+        } else if !out.ends_with('-') && !out.is_empty() {
+            out.push('-');
+        }
+    }
+    let out = out.trim_end_matches('-').to_owned();
+    if out.is_empty() {
+        "figure".into()
+    } else {
+        out
+    }
+}
+
+fn asset_import(ws: &mut Workspace, p: Value) -> CommandResult {
+    use base64::Engine as _;
+    const EXTS: &[&str] = &["png", "jpg", "jpeg", "pdf", "eps"];
+    let AssetParam {
+        source,
+        base64,
+        name,
+    } = params(p)?;
+    let (bytes, file_name) = match (source, base64) {
+        (Some(src), _) => {
+            let path = PathBuf::from(&src);
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            (fs::read(&path)?, name)
+        }
+        (None, Some(b64)) => (
+            base64::engine::general_purpose::STANDARD
+                .decode(b64.as_bytes())
+                .map_err(|e| CommandError::InvalidParams(e.to_string()))?,
+            name.unwrap_or_else(|| "pasted.png".into()),
+        ),
+        _ => return Err(CommandError::InvalidParams("需要 source 或 base64".into())),
+    };
+    let fname = Path::new(&file_name);
+    let ext = fname
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    if !EXTS.contains(&ext.as_str()) {
+        return Err(CommandError::InvalidParams(format!(
+            "LaTeX 不能直接插入 .{ext} 文件，支持 PNG、JPG、PDF、EPS"
+        )));
+    }
+    let stem = slug(
+        &fname
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+    );
+
+    // 目标目录：\graphicspath > 已有的常见图片目录 > 新建 figures/
+    let root = ws.root()?.to_path_buf();
+    let index = ws.index()?;
+    let base = index.base_dir();
+    let graphics_path = index
+        .graphics_paths()
+        .next()
+        .map(|d| d.trim_end_matches('/').to_owned());
+    let dir_rel = graphics_path.clone().unwrap_or_else(|| {
+        ["figures", "Figures", "figs", "fig", "images", "img"]
+            .iter()
+            .find(|d| root.join(&base).join(d).is_dir())
+            .map(|d| d.to_string())
+            .unwrap_or_else(|| "figures".into())
+    });
+    let dir = root.join(&base).join(&dir_rel);
+    fs::create_dir_all(&dir)?;
+    let mut final_name = format!("{stem}.{ext}");
+    let mut n = 2;
+    while dir.join(&final_name).exists() {
+        final_name = format!("{stem}-{n}.{ext}");
+        n += 1;
+    }
+    fs::write(dir.join(&final_name), bytes)?;
+    ws.invalidate();
+
+    let rel = base
+        .join(&dir_rel)
+        .join(&final_name)
+        .to_string_lossy()
+        .replace('\\', "/");
+    // 目录已在 \graphicspath 中时只写文件名；pdfLaTeX/XeLaTeX 会自动补全扩展名
+    let include_dir = if graphics_path.is_some() {
+        String::new()
+    } else {
+        format!("{dir_rel}/")
+    };
+    let include_stem = Path::new(&final_name)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    Ok(json!({
+        "path": rel,
+        "include": format!("{include_dir}{include_stem}"),
+        "label": format!("fig:{}", slug(&include_stem)),
+    }))
 }
 
 fn file_write(ws: &mut Workspace, p: Value) -> CommandResult {

@@ -64,6 +64,10 @@
   }
 
   let bibQuery = $state('');
+  let importId = $state('');
+  async function doImport() {
+    if (await app.importBib(importId)) importId = '';
+  }
   let bibFilter = $state<'all' | 'unused'>('all');
   let unusedCount = $derived((app.check?.bib ?? []).filter((e) => e.unused).length);
   let bib = $derived(
@@ -211,6 +215,11 @@
     {/each}
   {:else}
     <div class="sec-h">文献库</div>
+    <form class="import" onsubmit={(e) => { e.preventDefault(); void doImport(); }}>
+      <label class="sr-only" for="bibimport">通过 DOI 或 arXiv 导入</label>
+      <input id="bibimport" placeholder="粘贴 DOI、arXiv 编号或链接" bind:value={importId} disabled={app.importingBib} />
+      <button class="btn btn-pri" type="submit" disabled={!importId.trim() || app.importingBib}>{app.importingBib ? '导入中…' : '导入'}</button>
+    </form>
     <div class="search">
       <label class="sr-only" for="bibq">搜索文献</label>
       <input id="bibq" placeholder="搜索 key、标题或作者" bind:value={bibQuery} />
@@ -490,6 +499,21 @@
   }
   .search {
     padding: 0 12px 8px;
+  }
+  .import {
+    display: flex;
+    gap: 6px;
+    padding: 0 12px 10px;
+  }
+  .import input {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    padding: 0 8px;
+    font-size: 12px;
   }
   .search input {
     width: 100%;

@@ -51,6 +51,81 @@ const DROP_WITH_ARGS: &[&str] = &[
     "protect",
 ];
 
+/// 常见数学与符号命令的 Unicode 形式，用于标题、图注的显示。
+fn symbol(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "alpha" => "α",
+        "beta" => "β",
+        "gamma" => "γ",
+        "delta" => "δ",
+        "epsilon" | "varepsilon" => "ε",
+        "zeta" => "ζ",
+        "eta" => "η",
+        "theta" => "θ",
+        "kappa" => "κ",
+        "lambda" => "λ",
+        "mu" => "μ",
+        "nu" => "ν",
+        "xi" => "ξ",
+        "pi" => "π",
+        "rho" => "ρ",
+        "sigma" => "σ",
+        "tau" => "τ",
+        "phi" | "varphi" => "φ",
+        "chi" => "χ",
+        "psi" => "ψ",
+        "omega" => "ω",
+        "Gamma" => "Γ",
+        "Delta" => "Δ",
+        "Theta" => "Θ",
+        "Lambda" => "Λ",
+        "Pi" => "Π",
+        "Sigma" => "Σ",
+        "Phi" => "Φ",
+        "Psi" => "Ψ",
+        "Omega" => "Ω",
+        "le" | "leq" | "leqslant" => "≤",
+        "ge" | "geq" | "geqslant" => "≥",
+        "neq" | "ne" => "≠",
+        "approx" => "≈",
+        "sim" => "~",
+        "pm" => "±",
+        "mp" => "∓",
+        "times" => "×",
+        "cdot" => "·",
+        "to" | "rightarrow" => "→",
+        "leftarrow" => "←",
+        "infty" => "∞",
+        "circ" | "degree" => "°",
+        "partial" => "∂",
+        "sum" => "Σ",
+        "prod" => "Π",
+        "sqrt" => "√",
+        "ldots" | "dots" | "cdots" => "…",
+        "textdegree" => "°",
+        "textendash" => "–",
+        "textemdash" => "—",
+        "S" => "§",
+        "percent" => "%",
+        _ => return None,
+    })
+}
+
+const SUPERSCRIPT: &[(char, char)] = &[
+    ('0', '⁰'),
+    ('1', '¹'),
+    ('2', '²'),
+    ('3', '³'),
+    ('4', '⁴'),
+    ('5', '⁵'),
+    ('6', '⁶'),
+    ('7', '⁷'),
+    ('8', '⁸'),
+    ('9', '⁹'),
+    ('-', '⁻'),
+    ('+', '⁺'),
+];
+
 /// 把一段 LaTeX 源码（标题、图注）转成便于显示的纯文本。
 pub fn plain(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -72,7 +147,19 @@ pub fn plain(s: &str) -> String {
                     match name.as_str() {
                         "LaTeX" | "TeX" => out.push_str(&name),
                         _ if DROP_WITH_ARGS.contains(&name.as_str()) => skip_args(&mut chars),
-                        _ => {}
+                        n => {
+                            if let Some(sym) = symbol(n) {
+                                // 运算符两侧补空格，避免与前后文字粘连
+                                let spaced = matches!(sym, "≤" | "≥" | "≠" | "≈" | "±" | "×" | "→");
+                                if spaced {
+                                    out.push(' ');
+                                }
+                                out.push_str(sym);
+                                if spaced {
+                                    out.push(' ');
+                                }
+                            }
+                        }
                     }
                 }
                 Some(n) => {
@@ -81,8 +168,36 @@ pub fn plain(s: &str) -> String {
                 }
                 None => {}
             },
-            '{' | '}' => {}
+            '{' | '}' | '$' => {}
             '~' => out.push(' '),
+            // 上标：x^2、x^{-1} → x²、x⁻¹；下标只去掉符号
+            '^' => {
+                let braced = chars.peek() == Some(&'{');
+                if braced {
+                    chars.next();
+                }
+                while let Some(&n) = chars.peek() {
+                    if braced && n == '}' {
+                        chars.next();
+                        break;
+                    }
+                    match SUPERSCRIPT.iter().find(|(c, _)| *c == n) {
+                        Some((_, sup)) => {
+                            out.push(*sup);
+                            chars.next();
+                        }
+                        None if braced => {
+                            out.push(n);
+                            chars.next();
+                        }
+                        None => break,
+                    }
+                    if !braced {
+                        break;
+                    }
+                }
+            }
+            '_' => {}
             c => out.push(c),
         }
     }

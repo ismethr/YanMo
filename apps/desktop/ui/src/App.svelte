@@ -13,6 +13,33 @@
   import CommandPalette from './components/CommandPalette.svelte';
 
   // 浏览器预览的演示模式：?demo 自动打开示例论文（用于截图与官网）
+  // 从访达拖入图片：导入并插入 figure 环境
+  let dragging = $state(false);
+  onMount(() => {
+    if (!inTauri) return;
+    let unlisten: (() => void) | undefined;
+    void import('@tauri-apps/api/webview').then(async ({ getCurrentWebview }) => {
+      unlisten = await getCurrentWebview().onDragDropEvent((e) => {
+        const p = e.payload;
+        if (p.type === 'enter' || p.type === 'over') dragging = !!app.project;
+        else if (p.type === 'leave') dragging = false;
+        else if (p.type === 'drop') {
+          dragging = false;
+          if (!app.project) return;
+          const images = p.paths.filter((x) => /\.(png|jpe?g|pdf|eps)$/i.test(x));
+          if (!images.length) {
+            app.flash('只能拖入 PNG、JPG、PDF、EPS 图片');
+            return;
+          }
+          void (async () => {
+            for (const source of images) await app.importImage({ source });
+          })();
+        }
+      });
+    });
+    return () => unlisten?.();
+  });
+
   onMount(async () => {
     if (inTauri) {
       const folder = await launchFolder();
@@ -77,6 +104,11 @@
   {/if}
   <StatusBar />
   {#if app.palette}<CommandPalette />{/if}
+  {#if dragging}
+    <div class="dropzone" aria-hidden="true">
+      <div>松开以导入图片<br /><span>放入项目图片目录，并在光标处插入 figure 环境</span></div>
+    </div>
+  {/if}
   {#if app.notice}
     <div class="toast" role="status">
       <span>{app.notice.text}</span>
@@ -104,6 +136,26 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+  }
+  .dropzone {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.72);
+    border: 2px dashed var(--accent);
+    pointer-events: none;
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.8;
+  }
+  .dropzone span {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--fg2);
   }
   .toast {
     display: flex;

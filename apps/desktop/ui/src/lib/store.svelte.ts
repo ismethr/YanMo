@@ -161,6 +161,9 @@ class AppState {
   syncTarget = $state<(PdfRect & { n: number }) | null>(null);
   autoCompile = $state(true);
   exporting = $state(false);
+  /** 请求编辑器在光标处插入文本；n 递增以区分多次请求 */
+  insertRequest = $state<{ path: string; text: string; n: number } | null>(null);
+  importingBib = $state(false);
   lastExport = $state<ExportOutput | null>(null);
   #compileAgain = false;
 
@@ -390,6 +393,62 @@ class AppState {
       this.flash(String(e));
     } finally {
       this.exporting = false;
+    }
+  }
+
+  /** 在当前文本标签页的光标处插入。没有打开的文本文件时打开主文件。 */
+  async insertAtCursor(text: string) {
+    let path = this.active;
+    if (!path || path.startsWith('yanmo://')) {
+      path = this.tabs.find((t) => !t.startsWith('yanmo://')) ?? this.project?.main ?? null;
+      if (!path) return;
+      await this.openFile(path);
+    }
+    this.insertRequest = { path, text, n: (this.insertRequest?.n ?? 0) + 1 };
+  }
+
+  /** 通过 DOI / arXiv 导入文献，成功后可一键插入 \cite。 */
+  async importBib(id: string): Promise<boolean> {
+    if (!id.trim() || this.importingBib) return false;
+    this.importingBib = true;
+    try {
+      const fetched = await execute<{ key: string; title: string | null; bibtex: string }>('bib.fetch', { id });
+      const added = await execute<{ key: string; duplicate: boolean; file: string; needs_bibliography?: boolean }>('bib.add', {
+        bibtex: fetched.bibtex,
+      });
+      await this.refresh();
+      const key = added.key;
+      const msg = added.duplicate
+        ? `文献库中已有这篇（${key}）`
+        : `已导入 ${key} → ${added.file}${added.needs_bibliography ? '；请在正文中用 \\bibliography 引入该文件' : ''}`;
+      this.flash(msg, { label: `插入 \\cite{${key}}`, run: () => void this.insertAtCursor(`\\cite{${key}}`) });
+      return true;
+    } catch (e) {
+      this.flash(String(e));
+      return false;
+    } finally {
+      this.importingBib = false;
+    }
+  }
+
+  /** 导入图片（拖入的文件路径或粘贴的数据），并在光标处插入 figure 环境。 */
+  async importImage(input: { source: string } | { base64: string; name: string }) {
+    try {
+      const r = await execute<{ path: string; include: string; label: string }>('asset.import', input);
+      const snippet = [
+        '\\begin{figure}[htbp]',
+        '  \\centering',
+        `  \\includegraphics[width=0.8\\linewidth]{${r.include}}`,
+        '  \\caption{}',
+        `  \\label{${r.label}}`,
+        '\\end{figure}',
+        '',
+      ].join('\n');
+      await this.insertAtCursor(snippet);
+      void execute<TreeNode[]>('project.tree').then((t) => (this.tree = t));
+      this.flash(`已把图片放入 ${r.path}，并插入 figure 环境`);
+    } catch (e) {
+      this.flash(String(e));
     }
   }
 }
