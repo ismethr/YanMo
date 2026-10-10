@@ -1,0 +1,76 @@
+{
+  "assets": [
+    {
+      "caption": "整体架构",
+      "files": [
+        "figures/arch.pdf"
+      ],
+      "kind": "figure",
+      "label": "fig:arch",
+      "references": [],
+      "span": {
+        "end": 225,
+        "file": "sections/method.tex",
+        "line": 2,
+        "start": 35
+      }
+    },
+    {
+      "caption": null,
+      "files": [],
+      "kind": "equation",
+      "label": "sec:intro",
+      "references": [],
+      "span": {
+        "end": 308,
+        "file": "sections/method.tex",
+        "line": 7,
+        "start": 226
+      }
+    }
+  ],
+  "files": [
+    "main.tex",
+    "sections/intro.tex",
+    "sections/method.tex"
+  ],
+  "front_words": 0,
+  "labels": [
+    "sec:intro",
+    "sec:method",
+    "fig:arch",
+    "sec:intro"
+  ],
+  "main": "main.tex",
+  "outline": [
+    {
+      "children": [],
+      "id": "sec:intro",
+      "label": "sec:intro",
+      "level": "section",
+      "span": {
+        "end": 16,
+        "file": "sections/intro.tex",
+        "line": 1,
+        "start": 0
+      },
+      "title": "引言",
+      "words": 21
+    },
+    {
+      "children": [],
+      "id": "sec:method",
+      "label": "sec:method",
+      "level": "section",
+      "span": {
+        "end": 16,
+        "file": "sections/method.tex",
+        "line": 1,
+        "start": 0
+      },
+      "title": "方法",
+      "words": 4
+    }
+  ],
+  "total_words": 25
+}

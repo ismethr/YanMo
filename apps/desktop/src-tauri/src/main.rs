@@ -5,7 +5,12 @@ mod bridge;
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![bridge::execute, bridge::list_commands])
+        .plugin(tauri_plugin_dialog::init())
+        .manage(bridge::AppState::default())
+        .invoke_handler(tauri::generate_handler![
+            bridge::execute,
+            bridge::list_commands
+        ])
         .run(tauri::generate_context!())
-        .expect("error while running Yanmo");
+        .expect("error while running YanMo");
 }

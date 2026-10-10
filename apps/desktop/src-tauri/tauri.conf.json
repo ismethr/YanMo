@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Yanmo",
+  "productName": "YanMo",
   "version": "0.1.0-alpha",
   "identifier": "app.yanmo.desktop",
   "build": {
@@ -10,11 +10,23 @@
     "beforeBuildCommand": "pnpm --dir ../ui build"
   },
   "app": {
-    "windows": [{ "title": "研墨 Yanmo", "width": 1440, "height": 900, "minWidth": 960, "minHeight": 600 }],
-    "security": { "csp": null }
+    "windows": [
+      {
+        "label": "main",
+        "title": "研墨 YanMo",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: blob:; font-src 'self' data:"
+    }
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app", "msi", "nsis", "appimage", "deb"]
+    "targets": ["dmg", "app", "msi", "nsis", "appimage", "deb"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
   }
 }

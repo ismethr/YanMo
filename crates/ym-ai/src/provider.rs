@@ -5,9 +5,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProviderConfig {
-    Anthropic { model: String },
+    Anthropic {
+        model: String,
+    },
     /// 覆盖 OpenAI / DeepSeek / 通义 / Ollama / vLLM 等任意兼容接口
-    OpenAiCompatible { base_url: String, model: String },
+    OpenAiCompatible {
+        base_url: String,
+        model: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,0 +1,191 @@
+/* 主题令牌：浅色为默认，暗色随系统或 data-theme 切换。与交互原型保持一致。 */
+:root {
+  --bg: #fffefc;
+  --bg2: #f7f5f1;
+  --bg3: #efece6;
+  --line: #e3dfd7;
+  --fg: #1f2329;
+  --fg2: #555b66;
+  --fg3: #6e747e;
+  --hover: #eeebe5;
+  --active: #e4e0d8;
+  --cur: #f6f3ec;
+  --sel: #dbe7fb;
+  --accent: #c4472f;
+  --btn: #bf4330;
+  --btn-hover: #a8392a;
+  --err: #c62f2a;
+  --warn: #a35f00;
+  --ok: #2b7a4b;
+  --sb: #efece6;
+  --sbfg: #3d424a;
+  --pdfbg: #e9e6e0;
+  --chip: #f1eee8;
+  --tk-cmd: #1f56c4;
+  --tk-env: #8a3fb5;
+  --tk-label: #0d7460;
+  --tk-cite: #975700;
+  --tk-path: #1b6896;
+  --tk-com: #7c828b;
+  --tk-str: #47760b;
+  --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'PingFang SC', monospace;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #16181d;
+  --bg2: #1b1e24;
+  --bg3: #111317;
+  --line: #2a2e37;
+  --fg: #d7dae0;
+  --fg2: #a0a7b3;
+  --fg3: #7a818c;
+  --hover: #242832;
+  --active: #2c3240;
+  --cur: #1e2229;
+  --sel: #28395a;
+  --accent: #e0614a;
+  --err: #f2665f;
+  --warn: #e8a23a;
+  --ok: #5fb98a;
+  --sb: #24324f;
+  --sbfg: #ffffff;
+  --pdfbg: #2a2d34;
+  --chip: #262a33;
+  --tk-cmd: #7aa7ff;
+  --tk-env: #c792ea;
+  --tk-label: #7fd1b9;
+  --tk-cite: #e6b673;
+  --tk-path: #8fc3ea;
+  --tk-com: #6f7682;
+  --tk-str: #b9dd8a;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 13px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--active);
+  border-radius: 5px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 5px;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  background: var(--chip);
+}
+.btn:hover {
+  background: var(--active);
+}
+.btn-pri {
+  background: var(--btn);
+  border-color: var(--btn);
+  color: #fff;
+}
+.btn-pri:hover {
+  background: var(--btn-hover);
+}
+
+.chip {
+  font-size: 11px;
+  border-radius: 9px;
+  padding: 1px 8px;
+  white-space: nowrap;
+  border: 1px solid var(--line);
+  color: var(--fg2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 24px;
+  padding: 2px 10px;
+  font-size: 13px;
+}
+.row:hover {
+  background: var(--hover);
+}
+.row.on {
+  background: var(--active);
+}
+
+.sec-h {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--fg2);
+  padding: 10px 12px 6px;
+  text-transform: uppercase;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.c-err {
+  color: var(--err);
+}
+.c-warn {
+  color: var(--warn);
+}
+.c-ok {
+  color: var(--ok);
+}
+.muted {
+  color: var(--fg2);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

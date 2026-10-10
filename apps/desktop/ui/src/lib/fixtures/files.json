@@ -1,0 +1,6 @@
+{
+  "main.tex": "% !TEX program = xelatex\n\\documentclass{ctexart}\n\\usepackage{graphicx,amsmath}\n\\begin{document}\n\\input{sections/intro}\n\\input{sections/method}\n\\bibliographystyle{plain}\n\\bibliography{refs}\n\\end{document}\n",
+  "refs.bib": "@inproceedings{vaswani2017attention,\n  title     = {Attention Is All You Need},\n  author    = {Vaswani, Ashish and others},\n  booktitle = {NeurIPS},\n  year      = {2017}\n}\n\n@article{unused2020,\n  title  = {An Entry Nobody Cites},\n  author = {Doe, Jane},\n  year   = {2020}\n}\n",
+  "sections/intro.tex": "\\section{引言}\\label{sec:intro}\nTransformer~\\cite{vaswani2017attention} 改变了序列建模。\n本文方法见第~\\ref{sec:method} 节，结果见图~\\ref{fig:missing}。% [问题] 未定义的 ref\n另见~\\cite{nobody2099}。% [问题] 未定义的 cite\n",
+  "sections/method.tex": "\\section{方法}\\label{sec:method}\n\\begin{figure}[t]\n  \\centering\n  \\includegraphics[width=.8\\linewidth]{figures/arch.pdf}% [问题] 文件缺失\n  \\caption{整体架构}\\label{fig:arch}% [问题] 从未被引用\n\\end{figure}\n\\begin{equation}\\label{sec:intro}% [问题] 重复 label\n  y = f(x)\n\\end{equation}\n"
+}

@@ -7,7 +7,7 @@ use ym_check::{Issue, Severity};
 use ym_model::Section;
 
 #[derive(Parser)]
-#[command(name = "ym", version, about = "研墨 Yanmo 命令行")]
+#[command(name = "ym", version, about = "研墨 YanMo 命令行")]
 struct Cli {
     /// 项目根目录，默认当前目录
     #[arg(short = 'C', long, default_value = ".")]
@@ -36,6 +36,12 @@ enum Cmd {
     },
     /// 通过 DOI / arXiv ID 导入文献
     BibImport { id: String },
+    /// 执行命令注册表中的任意命令，例如 `ym exec project.index`；不带 ID 时列出所有命令
+    Exec {
+        id: Option<String>,
+        /// JSON 参数，例如 '{"path":"sections/intro.tex"}'
+        params: Option<String>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -115,6 +121,24 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             } else {
                 ExitCode::SUCCESS
             })
+        }
+        Cmd::Exec { id, params } => {
+            let registry = ym_commands::Registry::with_builtins();
+            let Some(id) = id else {
+                for m in registry.list() {
+                    let mark = if m.mutating { "  [修改文件]" } else { "" };
+                    println!("{:<16} {}{mark}", m.id, m.title);
+                }
+                return Ok(ExitCode::SUCCESS);
+            };
+            let mut ws = ym_commands::Workspace::default();
+            ws.open(root)?;
+            let params = match params {
+                Some(p) => serde_json::from_str(&p).context("参数不是合法 JSON")?,
+                None => serde_json::Value::Null,
+            };
+            print_json(&registry.execute(&mut ws, &id, params)?)?;
+            Ok(ExitCode::SUCCESS)
         }
         Cmd::Compile => bail!("ym compile 尚未实现（M1）"),
         Cmd::BibImport { .. } => bail!("ym bib-import 尚未实现（M2 后续）"),

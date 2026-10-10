@@ -1,2 +1,5 @@
-// 应用入口：布局 = 左侧栏（文件 / 大纲 / 资产 / 文献）| 编辑器 | PDF 预览 | 右侧 AI 面板
-import "./styles.css";
+import { mount } from 'svelte';
+import './app.css';
+import App from './App.svelte';
+
+export default mount(App, { target: document.getElementById('app')! });

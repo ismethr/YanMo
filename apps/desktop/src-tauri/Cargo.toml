@@ -9,13 +9,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-ym-model.workspace = true
+tauri-plugin-dialog = "2"
 ym-commands.workspace = true
-ym-compile.workspace = true
-ym-latex.workspace = true
-ym-bib.workspace = true
-ym-ai.workspace = true
-ym-check.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true

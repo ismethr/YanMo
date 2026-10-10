@@ -1,0 +1,34 @@
+[
+  {
+    "kind": "dir",
+    "name": "figures",
+    "path": "figures"
+  },
+  {
+    "children": [
+      {
+        "kind": "tex",
+        "name": "intro.tex",
+        "path": "sections/intro.tex"
+      },
+      {
+        "kind": "tex",
+        "name": "method.tex",
+        "path": "sections/method.tex"
+      }
+    ],
+    "kind": "dir",
+    "name": "sections",
+    "path": "sections"
+  },
+  {
+    "kind": "tex",
+    "name": "main.tex",
+    "path": "main.tex"
+  },
+  {
+    "kind": "bib",
+    "name": "refs.bib",
+    "path": "refs.bib"
+  }
+]

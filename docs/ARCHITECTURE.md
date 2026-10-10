@@ -30,7 +30,7 @@
 
 ## 与 PhotoCraft 的对应关系
 
-| PhotoCraft | Yanmo |
+| PhotoCraft | YanMo |
 |---|---|
 | 纯数据文档模型 + 命令引擎 | `ym-model` + `ym-commands` |
 | 500+ 命令同时服务 UI、CLI、JSON 通道、MCP | 同上，命令 ID 形如 `compile.run` |

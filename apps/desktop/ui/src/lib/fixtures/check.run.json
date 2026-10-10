@@ -1,0 +1,141 @@
+{
+  "bib": [
+    {
+      "citations": [
+        {
+          "end": 72,
+          "file": "sections/intro.tex",
+          "line": 2,
+          "start": 52
+        }
+      ],
+      "entry_type": "inproceedings",
+      "fields": {
+        "author": "Vaswani, Ashish and others",
+        "booktitle": "NeurIPS",
+        "title": "Attention Is All You Need",
+        "year": "2017"
+      },
+      "key": "vaswani2017attention",
+      "span": {
+        "end": 171,
+        "file": "refs.bib",
+        "line": 1,
+        "start": 0
+      }
+    },
+    {
+      "citations": [],
+      "entry_type": "article",
+      "fields": {
+        "author": "Doe, Jane",
+        "title": "An Entry Nobody Cites",
+        "year": "2020"
+      },
+      "key": "unused2020",
+      "span": {
+        "end": 273,
+        "file": "refs.bib",
+        "line": 8,
+        "start": 173
+      }
+    }
+  ],
+  "errors": 4,
+  "issues": [
+    {
+      "at": {
+        "end": 170,
+        "file": "sections/intro.tex",
+        "line": 3,
+        "start": 159
+      },
+      "code": "undefined_ref",
+      "file": "sections/intro.tex",
+      "label": "fig:missing",
+      "line": 3,
+      "message": "引用了未定义的 label `fig:missing`",
+      "severity": "error"
+    },
+    {
+      "at": {
+        "end": 225,
+        "file": "sections/intro.tex",
+        "line": 4,
+        "start": 215
+      },
+      "code": "undefined_cite",
+      "file": "sections/intro.tex",
+      "key": "nobody2099",
+      "line": 4,
+      "message": "引用了不存在的文献 `nobody2099`",
+      "severity": "error"
+    },
+    {
+      "at": {
+        "end": 122,
+        "file": "sections/method.tex",
+        "line": 4,
+        "start": 68
+      },
+      "code": "missing_file",
+      "file": "sections/method.tex",
+      "line": 4,
+      "message": "找不到文件 `figures/arch.pdf`",
+      "path": "figures/arch.pdf",
+      "severity": "error"
+    },
+    {
+      "at": [
+        {
+          "end": 32,
+          "file": "sections/intro.tex",
+          "line": 1,
+          "start": 23
+        },
+        {
+          "end": 258,
+          "file": "sections/method.tex",
+          "line": 7,
+          "start": 249
+        }
+      ],
+      "code": "duplicate_label",
+      "file": "sections/method.tex",
+      "label": "sec:intro",
+      "line": 7,
+      "message": "label `sec:intro` 被定义了 2 次",
+      "severity": "error"
+    },
+    {
+      "at": {
+        "end": 273,
+        "file": "refs.bib",
+        "line": 8,
+        "start": 173
+      },
+      "code": "unused_bib_entry",
+      "file": "refs.bib",
+      "key": "unused2020",
+      "line": 8,
+      "message": "文献 `unused2020` 从未被引用",
+      "severity": "warning"
+    },
+    {
+      "at": {
+        "end": 225,
+        "file": "sections/method.tex",
+        "line": 2,
+        "start": 35
+      },
+      "code": "unreferenced_asset",
+      "file": "sections/method.tex",
+      "kind": "figure",
+      "label": "fig:arch",
+      "line": 2,
+      "message": "图 `fig:arch` 从未在正文中被引用",
+      "severity": "warning"
+    }
+  ],
+  "warnings": 2
+}

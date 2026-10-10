@@ -1,6 +1,6 @@
-# Yanmo MVP 功能清单
+# YanMo MVP 功能清单
 
-> **研墨 Yanmo**。开源、本地优先、AI 原生的 LaTeX 论文写作与编译桌面应用。
+> **研墨 YanMo**。开源、本地优先、AI 原生的 LaTeX 论文写作与编译桌面应用。
 > 架构参考 [PhotoCraft](https://github.com/storytold/photocraft)：底层是 Rust 引擎，所有操作走统一的命令注册表，UI、CLI 和 MCP 共用同一套命令。
 
 ## 0. 产品定位与 MVP 目标

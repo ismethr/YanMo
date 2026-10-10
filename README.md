@@ -1,4 +1,6 @@
-# 研墨 Yanmo
+<p align="center"><img src="assets/brand/icon-1024.png" width="128" alt="YanMo 图标"></p>
+
+# 研墨 YanMo
 
 开源、本地优先、AI 原生的 LaTeX 论文写作与编译桌面应用。
 
@@ -11,13 +13,24 @@
 
 ## 开发
 
+依赖：Rust stable、Node 22、pnpm（版本见 `apps/desktop/ui/package.json` 的 `packageManager`）；Linux 另需 webkit2gtk-4.1。
+
 ```bash
-# 依赖：Rust stable、Node 20+、pnpm 9；Linux 另需 webkit2gtk-4.1
 pnpm --dir apps/desktop/ui install
-cargo tauri dev --config apps/desktop/src-tauri/tauri.conf.json
+
+# 桌面应用（Tauri，会自动启动前端开发服务器）
+pnpm --dir apps/desktop/ui tauri dev
+
+# 只改界面：浏览器预览模式，使用 examples/sample-paper 的示例数据，无需编译 Rust
+pnpm --dir apps/desktop/ui dev
+
+# 测试与命令行
 cargo test --workspace
 cargo run -p ym-cli -- -C examples/sample-paper check
+cargo run -p ym-cli -- exec                      # 列出命令注册表中的所有命令
 ```
+
+改动了 Rust 命令的返回结构后，运行 `pnpm --dir apps/desktop/ui fixtures` 重新生成预览模式的数据。
 
 ## 许可证
 

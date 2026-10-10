@@ -12,3 +12,7 @@ dist/
 *.bbl
 *.blg
 .yanmo/cache/
+
+# 本地开发工具配置
+.claude/
+apps/desktop/src-tauri/gen/
