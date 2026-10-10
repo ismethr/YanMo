@@ -146,12 +146,12 @@
     </div>
     <div class="term" role="img" aria-label="Output of ym check on a sample paper: 4 errors, 2 warnings">
 <pre><span class="p">$</span> ym check
-sections/intro.tex:3: <span class="e">error</span>[undefined_ref] undefined label `fig:missing`
-sections/intro.tex:4: <span class="e">error</span>[undefined_cite] citation `nobody2099` not found
-sections/method.tex:4: <span class="e">error</span>[missing_file] file not found `figures/arch.pdf`
-sections/method.tex:7: <span class="e">error</span>[duplicate_label] label `sec:intro` defined 2 times
+sections/intro.tex:3: <span class="e">error</span>[undefined_ref] reference to undefined label `fig:missing`
+sections/intro.tex:4: <span class="e">error</span>[undefined_cite] citation `nobody2099` is not in the bibliography
+sections/method.tex:4: <span class="e">error</span>[missing_file] file not found: `figures/arch.pdf`
+sections/method.tex:7: <span class="e">error</span>[duplicate_label] label `sec:intro` is defined 2 times
 refs.bib:8: <span class="w">warning</span>[unused_bib_entry] entry `unused2020` is never cited
-sections/method.tex:2: <span class="w">warning</span>[unreferenced_asset] figure `fig:arch` is never referenced
+sections/method.tex:2: <span class="w">warning</span>[unreferenced_asset] figure `fig:arch` is never referenced in the text
 
 4 errors, 2 warnings</pre>
     </div>

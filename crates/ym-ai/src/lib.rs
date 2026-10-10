@@ -12,6 +12,7 @@ pub mod provider;
 pub mod settings;
 
 use serde::{Deserialize, Serialize};
+use ym_model::tr;
 
 pub use provider::{stream, ChatOutcome, StreamEvent};
 pub use settings::{AiSettings, ProviderKind};
@@ -38,17 +39,17 @@ pub struct ChatRequest {
 
 #[derive(Debug, thiserror::Error)]
 pub enum AiError {
-    #[error("还没有设置 {0} 的 API Key")]
+    #[error("{}", tr!("还没有设置 {p} 的 API Key", "No API key set for {p}", p = .0))]
     MissingKey(&'static str),
-    #[error("服务商返回错误（HTTP {status}）：{message}")]
+    #[error("{}", tr!("服务商返回错误（HTTP {status}）：{message}", "The provider returned an error (HTTP {status}): {message}"))]
     Http { status: u16, message: String },
-    #[error("网络错误：{0}")]
+    #[error("{}", tr!("网络错误：{e}", "Network error: {e}", e = .0))]
     Network(String),
-    #[error("模型拒绝了这个请求{0}")]
+    #[error("{}", tr!("模型拒绝了这个请求{c}", "The model declined this request{c}", c = .0))]
     Refusal(String),
-    #[error("已取消")]
+    #[error("{}", tr!("已取消", "Cancelled"))]
     Cancelled,
-    #[error("钥匙串错误：{0}")]
+    #[error("{}", tr!("钥匙串错误：{e}", "Keychain error: {e}", e = .0))]
     Keychain(String),
     #[error("{0}")]
     Other(String),

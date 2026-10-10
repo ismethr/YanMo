@@ -4,6 +4,7 @@
   import type { Asset, TreeNode } from '../lib/types';
   import Icon from './Icon.svelte';
   import Thumb from './Thumb.svelte';
+  import { tr } from '../lib/i18n.svelte';
 
   // 文件夹默认折叠（图片等资源目录往往很长），点开后记住
   let expanded = $state<Record<string, boolean>>({});
@@ -19,13 +20,21 @@
     else void app.openFile(n.path);
   }
 
-  const kindName: Record<Asset['kind'], string> = {
-    figure: '图',
-    table: '表',
-    equation: '公式',
-    algorithm: '算法',
-    listing: '代码',
-  };
+  let kindName: Record<Asset['kind'], string> = $derived({
+    figure: tr('图', 'Figure'),
+    table: tr('表', 'Table'),
+    equation: tr('公式', 'Equation'),
+    algorithm: tr('算法', 'Algorithm'),
+    listing: tr('代码', 'Listing'),
+  });
+  // 分组标题（英文用复数）
+  let kindHead: Record<Asset['kind'], string> = $derived({
+    figure: tr('图', 'Figures'),
+    table: tr('表', 'Tables'),
+    equation: tr('公式', 'Equations'),
+    algorithm: tr('算法', 'Algorithms'),
+    listing: tr('代码', 'Listings'),
+  });
 
   // 图表资产按类型分组并编号（图、表按出现顺序编号，与 LaTeX 默认一致；公式只列带 label 的）
   const kindOrder: Asset['kind'][] = ['figure', 'table', 'algorithm', 'listing', 'equation'];
@@ -124,23 +133,23 @@
         <span class="ext ext-{n.kind}">{n.kind === 'tex' ? 'TeX' : n.kind === 'bib' ? 'bib' : n.kind === 'image' ? 'img' : ''}</span>
       {/if}
       <span class="name">{n.name}</span>
-      {#if n.path === app.project?.main}<span class="main-tag" title="主文件">主</span>{/if}
-      {#if app.isDirty(n.path)}<span class="dirty" title="未保存">●</span>{/if}
+      {#if n.path === app.project?.main}<span class="main-tag" title={tr('主文件', 'Main file')}>{tr('主', 'main')}</span>{/if}
+      {#if app.isDirty(n.path)}<span class="dirty" title={tr('未保存', 'Unsaved')}>●</span>{/if}
       {#if b}<span class="badge" class:err={b.err}>{b.n}</span>{/if}
     </button>
     {#if n.children && expanded[n.path]}{@render tree(n.children, depth + 1)}{/if}
   {/each}
 {/snippet}
 
-<aside aria-label="侧栏" style:width="{app.layout.sidebarWidth}px">
+<aside aria-label={tr('侧栏', 'Sidebar')} style:width="{app.layout.sidebarWidth}px">
   {#if app.activity === 'files'}
-    <div class="sec-h">资源管理器 <span class="proj">{app.project?.name}</span></div>
+    <div class="sec-h">{tr('资源管理器', 'Explorer')} <span class="proj">{app.project?.name}</span></div>
     {@render tree(app.tree, 0)}
   {:else if app.activity === 'outline'}
-    <div class="sec-h">论文大纲</div>
+    <div class="sec-h">{tr('论文大纲', 'Outline')}</div>
     {#if (app.project?.roots.length ?? 0) > 1}
       <div class="main-pick">
-        <label for="mainsel" class="muted">主文件</label>
+        <label for="mainsel" class="muted">{tr('主文件', 'Main file')}</label>
         <select id="mainsel" value={app.project?.main} onchange={(e) => app.setMain((e.currentTarget as HTMLSelectElement).value)}>
           {#each app.project?.roots ?? [] as r (r)}<option value={r}>{r}</option>{/each}
         </select>
@@ -148,7 +157,7 @@
     {/if}
     {#if app.index}
       <div class="summary muted">
-        {sectionCount} 节 · 共 {fmt(app.index.total_words)} {app.wordUnit}
+        {tr(`${sectionCount} 节 · 共 ${fmt(app.index.total_words)} ${app.wordUnit}`, `${sectionCount} sections · ${fmt(app.index.total_words)} ${app.wordUnit}`)}
       </div>
       <div class="outline" bind:this={outlineEl}>
         {#each rows as r (r.id)}
@@ -160,7 +169,7 @@
             style:padding-left="{6 + r.depth * 14}px"
           >
             {#if r.hasChildren}
-              <button class="fold" aria-label={folded[r.id] ? '展开' : '折叠'} onclick={() => (folded[r.id] = !folded[r.id])}>
+              <button class="fold" aria-label={folded[r.id] ? tr('展开', 'Expand') : tr('折叠', 'Collapse')} onclick={() => (folded[r.id] = !folded[r.id])}>
                 <Icon name={folded[r.id] ? 'chevron' : 'chevronDown'} size={12} />
               </button>
             {:else}
@@ -174,23 +183,25 @@
           </div>
         {/each}
       </div>
-      {#if !app.index.outline.length}<p class="empty">还没有章节。写下 \section{'{'}…{'}'} 后会出现在这里。</p>{/if}
+      {#if !app.index.outline.length}<p class="empty">{tr('还没有章节。写下 \\section{…} 后会出现在这里。', 'No sections yet. They appear here once you write \\section{…}.')}</p>{/if}
     {:else}
-      <p class="empty">没有找到主文件（含 \documentclass 的 .tex），无法生成大纲。</p>
+      <p class="empty">
+        {tr('没有找到主文件（含 \\documentclass 的 .tex），无法生成大纲。', 'No main file (a .tex with \\documentclass) was found, so there is no outline.')}
+      </p>
     {/if}
   {:else if app.activity === 'assets'}
-    <div class="sec-h">图表资产</div>
+    <div class="sec-h">{tr('图表资产', 'Figures & Tables')}</div>
     {#each groups as g (g.kind)}
       <button class="ghead" onclick={() => (assetFolded[g.kind] = !assetFolded[g.kind])}>
         <Icon name={assetFolded[g.kind] ? 'chevron' : 'chevronDown'} size={12} />
-        <span>{kindName[g.kind]}</span>
+        <span>{kindHead[g.kind]}</span>
         <span class="count">{g.items.length}</span>
       </button>
       {#if !assetFolded[g.kind]}
         {#each g.items as a (a.span.file + a.span.start)}
           <button class="asset" onclick={() => app.openFile(a.span.file, a.span.line)}>
             {#if g.kind === 'figure'}
-              <Thumb path={a.paths?.find((p) => p) ?? null} fallback={a.files.length ? '…' : '图'} />
+              <Thumb path={a.paths?.find((p) => p) ?? null} fallback={a.files.length ? '…' : kindName.figure} />
             {/if}
             <span class="meta">
               <span class="line1">
@@ -200,38 +211,38 @@
               <span class="line2">
                 {#if a.label}<span class="mono label">{a.label}</span>{/if}
                 {#if a.references.length}
-                  <span class="muted">引用 {a.references.length} 次</span>
+                  <span class="muted">{tr(`引用 ${a.references.length} 次`, `cited ${a.references.length}×`)}</span>
                 {:else if g.kind !== 'equation'}
-                  <span class="c-warn">未被引用</span>
+                  <span class="c-warn">{tr('未被引用', 'not referenced')}</span>
                 {/if}
-                {#if a.paths?.some((p) => p === null)}<span class="c-err">图片缺失</span>{/if}
+                {#if a.paths?.some((p) => p === null)}<span class="c-err">{tr('图片缺失', 'image missing')}</span>{/if}
               </span>
             </span>
           </button>
         {/each}
       {/if}
     {:else}
-      <p class="empty">还没有 figure / table / 带 label 的公式。</p>
+      <p class="empty">{tr('还没有 figure / table / 带 label 的公式。', 'No figures, tables or labeled equations yet.')}</p>
     {/each}
   {:else}
-    <div class="sec-h">文献库</div>
+    <div class="sec-h">{tr('文献库', 'Bibliography')}</div>
     <form class="import" onsubmit={(e) => { e.preventDefault(); void doImport(); }}>
-      <label class="sr-only" for="bibimport">通过 DOI 或 arXiv 导入</label>
-      <input id="bibimport" placeholder="粘贴 DOI、arXiv 编号或链接" bind:value={importId} disabled={app.importingBib} />
-      <button class="btn btn-pri" type="submit" disabled={!importId.trim() || app.importingBib}>{app.importingBib ? '导入中…' : '导入'}</button>
+      <label class="sr-only" for="bibimport">{tr('通过 DOI 或 arXiv 导入', 'Import by DOI or arXiv')}</label>
+      <input id="bibimport" placeholder={tr('粘贴 DOI、arXiv 编号或链接', 'Paste a DOI, arXiv ID or link')} bind:value={importId} disabled={app.importingBib} />
+      <button class="btn btn-pri" type="submit" disabled={!importId.trim() || app.importingBib}>{app.importingBib ? tr('导入中…', 'Importing…') : tr('导入', 'Import')}</button>
     </form>
     <div class="search">
-      <label class="sr-only" for="bibq">搜索文献</label>
-      <input id="bibq" placeholder="搜索 key、标题或作者" bind:value={bibQuery} />
-      <div class="chips" role="group" aria-label="筛选">
-        <button class="chip" class:on={bibFilter === 'all'} onclick={() => (bibFilter = 'all')}>全部 {app.check?.bib.length ?? 0}</button>
-        <button class="chip" class:on={bibFilter === 'unused'} onclick={() => (bibFilter = 'unused')} disabled={!unusedCount}>未使用 {unusedCount}</button>
+      <label class="sr-only" for="bibq">{tr('搜索文献', 'Search references')}</label>
+      <input id="bibq" placeholder={tr('搜索 key、标题或作者', 'Search key, title or author')} bind:value={bibQuery} />
+      <div class="chips" role="group" aria-label={tr('筛选', 'Filter')}>
+        <button class="chip" class:on={bibFilter === 'all'} onclick={() => (bibFilter = 'all')}>{tr('全部', 'All')} {app.check?.bib.length ?? 0}</button>
+        <button class="chip" class:on={bibFilter === 'unused'} onclick={() => (bibFilter = 'unused')} disabled={!unusedCount}>{tr('未使用', 'Unused')} {unusedCount}</button>
       </div>
     </div>
     {#each undefinedCites as u (u.key + String(u.line))}
       <button class="bibr" onclick={() => u.file && app.openFile(u.file, u.line ?? 1)}>
-        <span class="bk"><span class="mono key">{u.key}</span><span class="c-err tag">未定义</span></span>
-        <span class="muted small">{u.file}:{u.line} 引用了它，但文献库中没有</span>
+        <span class="bk"><span class="mono key">{u.key}</span><span class="c-err tag">{tr('未定义', 'undefined')}</span></span>
+        <span class="muted small">{tr(`${u.file}:${u.line} 引用了它，但文献库中没有`, `cited at ${u.file}:${u.line} but not in the bibliography`)}</span>
       </button>
     {/each}
     {#each bib as e (e.span.file + e.key + e.span.start)}
@@ -239,22 +250,26 @@
         <span class="bk">
           <span class="mono key">{e.key}</span>
           {#if e.citations.length}
-            <span class="tag muted">引用 {e.citations.length}</span>
+            <span class="tag muted">{tr(`引用 ${e.citations.length}`, `cited ${e.citations.length}`)}</span>
           {:else if e.unused}
-            <span class="tag c-warn">未使用</span>
+            <span class="tag c-warn">{tr('未使用', 'unused')}</span>
           {:else}
-            <span class="tag muted" title="正文未引用，但同目录的其他文档（如补充材料）引用了它">其他文档引用</span>
+            <span
+              class="tag muted"
+              title={tr('正文未引用，但同目录的其他文档（如补充材料）引用了它', 'Not cited in the paper, but cited by another document in the folder (such as supplementary material)')}
+              >{tr('其他文档引用', 'cited elsewhere')}</span
+            >
           {/if}
         </span>
-        <span class="title">{tex(e.fields.title) || '（无标题）'}</span>
+        <span class="title">{tex(e.fields.title) || tr('（无标题）', '(untitled)')}</span>
         <span class="muted small">{[authors(e.fields.author), e.fields.year].filter(Boolean).join(' · ')}{e.fields.journal || e.fields.booktitle ? ` · ${tex(e.fields.journal ?? e.fields.booktitle)}` : ''}</span>
       </button>
     {:else}
-      <p class="empty">{bibQuery ? '没有匹配的文献' : '项目没有引用 .bib 文件'}</p>
+      <p class="empty">{bibQuery ? tr('没有匹配的文献', 'No matching references') : tr('项目没有引用 .bib 文件', 'The project does not use a .bib file')}</p>
     {/each}
   {/if}
 </aside>
-<div class="resizer" role="separator" aria-orientation="vertical" aria-label="调整侧栏宽度" onpointerdown={startResize}></div>
+<div class="resizer" role="separator" aria-orientation="vertical" aria-label={tr('调整侧栏宽度', 'Resize sidebar')} onpointerdown={startResize}></div>
 
 <style>
   aside {

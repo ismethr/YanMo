@@ -9,6 +9,8 @@ import info from './fixtures/project.info.json';
 import tree from './fixtures/project.tree.json';
 import index from './fixtures/project.index.json';
 import check from './fixtures/check.run.json';
+import checkEn from './fixtures/check.run.en.json';
+import { i18n, tr } from './i18n.svelte';
 import files from './fixtures/files.json';
 import compileRun from './fixtures/compile.run.json';
 import compilePdf from './fixtures/compile.pdf.json';
@@ -23,9 +25,9 @@ export async function execute<T>(id: string, params: Record<string, unknown> = {
 export async function listCommands(): Promise<CommandMeta[]> {
   if (inTauri) return invoke<CommandMeta[]>('list_commands');
   return [
-    { id: 'project.open', title: '打开文件夹', mutating: false },
-    { id: 'check.run', title: '检查项目问题', mutating: false },
-    { id: 'file.write', title: '写入文件', mutating: true },
+    { id: 'project.open', title: '打开文件夹', title_en: 'Open Folder', mutating: false },
+    { id: 'check.run', title: '检查项目问题', title_en: 'Check Project', mutating: false },
+    { id: 'file.write', title: '写入文件', title_en: 'Write File', mutating: true },
   ];
 }
 
@@ -45,7 +47,7 @@ export async function launchFolder(): Promise<string | null> {
 export async function pickFolder(): Promise<string | null> {
   if (!inTauri) return info.root;
   const { open } = await import('@tauri-apps/plugin-dialog');
-  const picked = await open({ directory: true, multiple: false, title: '打开论文文件夹' });
+  const picked = await open({ directory: true, multiple: false, title: tr('打开论文文件夹', 'Open Paper Folder') });
   return typeof picked === 'string' ? picked : null;
 }
 
@@ -62,9 +64,11 @@ function preview(id: string, params: Record<string, unknown>): unknown {
     case 'project.index':
       return index;
     case 'check.run':
-      return check;
+      return i18n.lang === 'en' ? checkEn : check;
+    case 'app.set_lang':
+      return { lang: params.lang };
     case 'file.read':
-      if (!(path in previewFiles)) throw new Error(`预览模式中没有文件：${path}`);
+      if (!(path in previewFiles)) throw new Error(tr(`预览模式中没有文件：${path}`, `No such file in preview mode: ${path}`));
       return { path, text: previewFiles[path] };
     case 'file.write':
       previewFiles[path] = params.text as string;
@@ -78,7 +82,7 @@ function preview(id: string, params: Record<string, unknown>): unknown {
     case 'project.set_main':
       return { ...info, main: path };
     case 'export.docx':
-      throw new Error('浏览器预览模式不支持导出 Word，请在桌面应用中使用');
+      throw new Error(tr('浏览器预览模式不支持导出 Word，请在桌面应用中使用', 'Word export is not available in the browser preview; use the desktop app'));
     case 'bib.fetch':
       return {
         key: 'he2016deep',
@@ -93,6 +97,6 @@ function preview(id: string, params: Record<string, unknown>): unknown {
     case 'synctex.inverse':
       return null; // 预览模式没有 SyncTeX 数据
     default:
-      throw new Error(`未知命令：${id}`);
+      throw new Error(tr(`未知命令：${id}`, `Unknown command: ${id}`));
   }
 }

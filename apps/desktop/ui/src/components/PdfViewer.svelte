@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tr } from '../lib/i18n.svelte';
   // PDF 预览（pdf.js）。
   // - 虚拟化：只渲染视口附近的页面，远离的页面释放画布，长文档滚动也不卡；
   // - 缩放：适合宽度 / 适合整页 / 百分比，触控板双指缩放、⌘+ ⌘- ⌘0；缩放时先用 CSS 即时拉伸，停下后再按清晰度重绘；
@@ -306,24 +307,27 @@
 
 <div class="viewer">
   <div class="toolbar">
-    <span>{sizes.length ? `第 ${currentPage} / ${sizes.length} 页` : '加载中…'}</span>
+    <span>{sizes.length ? tr(`第 ${currentPage} / ${sizes.length} 页`, `Page ${currentPage} of ${sizes.length}`) : tr('加载中…', 'Loading…')}</span>
     <span class="grow"></span>
-    <button aria-label="缩小" title="缩小（⌘-）" onclick={() => step(-1)}>−</button>
-    <label class="sr-only" for="pdfzoom">缩放</label>
+    <button aria-label={tr('缩小', 'Zoom out')} title={tr('缩小（⌘-）', 'Zoom out (⌘-)')} onclick={() => step(-1)}>−</button>
+    <label class="sr-only" for="pdfzoom">{tr('缩放', 'Zoom')}</label>
     <select id="pdfzoom" value={mode === 'custom' ? '' : mode} onchange={onPick}>
       <option value="" disabled hidden>{percent}%</option>
-      <option value="width">适合宽度{mode === 'width' ? `（${percent}%）` : ''}</option>
-      <option value="page">适合整页{mode === 'page' ? `（${percent}%）` : ''}</option>
+      <option value="width">{tr('适合宽度', 'Fit Width')}{mode === 'width' ? tr(`（${percent}%）`, ` (${percent}%)`) : ''}</option>
+      <option value="page">{tr('适合整页', 'Fit Page')}{mode === 'page' ? tr(`（${percent}%）`, ` (${percent}%)`) : ''}</option>
       {#each ZOOMS as z (z)}<option value={String(z)}>{Math.round(z * 100)}%</option>{/each}
     </select>
-    <button aria-label="放大" title="放大（⌘+）" onclick={() => step(1)}>+</button>
-    <span class="hint" title="点击页面跳回源码；双指捏合、⌘ 加滚轮或 ⌘+ / ⌘- 缩放，⌘0 适合宽度">?</span>
+    <button aria-label={tr('放大', 'Zoom in')} title={tr('放大（⌘+）', 'Zoom in (⌘+)')} onclick={() => step(1)}>+</button>
+    <span class="hint" title={tr(
+        '点击页面跳回源码；双指捏合、⌘ 加滚轮或 ⌘+ / ⌘- 缩放，⌘0 适合宽度',
+        'Click a page to jump to the source. Pinch, ⌘ + scroll or ⌘+ / ⌘- to zoom; ⌘0 fits the width',
+      )}>?</span>
   </div>
   <div class="scroller" bind:this={scroller} onscroll={onScroll}>
     <div class="stack" style:padding="{PAD}px" style:gap="{GAP}px">
       {#each sizes as s, i (i)}
         <div class="page" use:slot={i + 1} style:width="{s.w * scale}px" style:height="{s.h * scale}px">
-          <button class="hit" aria-label="第 {i + 1} 页，点击跳到对应源码" onclick={(e) => onPageClick(e, i + 1)}></button>
+          <button class="hit" aria-label={tr(`第 ${i + 1} 页，点击跳到对应源码`, `Page ${i + 1}; click to jump to the source`)} onclick={(e) => onPageClick(e, i + 1)}></button>
           {#if highlight && highlight.page === i + 1}
             {#key highlight.n}
               <div

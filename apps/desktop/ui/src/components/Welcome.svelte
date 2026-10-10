@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
+  import { i18n, tr } from '../lib/i18n.svelte';
 </script>
 
 <div class="welcome">
@@ -8,25 +9,29 @@
     <div class="hero">
       <img class="logo" src="/icon.svg" alt="" width="72" height="72" />
       <div>
-        <h1>研墨 <span class="muted">YanMo</span></h1>
-        <p class="muted">本地优先的 AI LaTeX 论文工作台 · 结构清晰，引用可靠，修改可控</p>
+        <h1>
+          {#if i18n.lang === 'zh'}研墨 <span class="muted">YanMo</span>{:else}YanMo <span class="muted">研墨</span>{/if}
+        </h1>
+        <p class="muted">
+          {tr('本地优先的 AI LaTeX 论文工作台 · 结构清晰，引用可靠，修改可控', 'A local-first AI LaTeX workspace for papers · clear structure, reliable references, changes you control')}
+        </p>
       </div>
     </div>
 
     <div class="cols">
       <section>
-        <h2>开始</h2>
-        <button class="link" onclick={() => app.openFolder()}><Icon name="folder" />打开文件夹…</button>
-        <span class="link off"><Icon name="files" />从模板新建论文（即将推出）</span>
+        <h2>{tr('开始', 'Start')}</h2>
+        <button class="link" onclick={() => app.openFolder()}><Icon name="folder" />{tr('打开文件夹…', 'Open Folder…')}</button>
+        <span class="link off"><Icon name="files" />{tr('从模板新建论文（即将推出）', 'New Paper from Template (coming soon)')}</span>
       </section>
       <section>
-        <h2>最近</h2>
+        <h2>{tr('最近', 'Recent')}</h2>
         {#each app.recent as r (r)}
           <button class="link recent" onclick={() => app.openFolder(r)}>
             <span>{r.split(/[\\/]/).filter(Boolean).pop()}</span><span class="muted path">{r}</span>
           </button>
         {:else}
-          <p class="muted">还没有打开过项目。</p>
+          <p class="muted">{tr('还没有打开过项目。', 'No recent projects.')}</p>
         {/each}
       </section>
     </div>

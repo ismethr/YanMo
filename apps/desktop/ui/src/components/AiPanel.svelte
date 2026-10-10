@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { app } from '../lib/store.svelte';
-  import { ai, REWRITE_LABELS, type AiMessage } from '../lib/ai-store.svelte';
+  import { ai, rewriteLabels, type AiMessage } from '../lib/ai-store.svelte';
+  import { tr } from '../lib/i18n.svelte';
   import { wordDiff } from '../lib/diff';
   import type { RewriteAction } from '../lib/ai';
   import Icon from './Icon.svelte';
@@ -9,7 +10,7 @@
 
   let draft = $state('');
   let list: HTMLDivElement | undefined = $state();
-  const actions = Object.entries(REWRITE_LABELS) as [RewriteAction, string][];
+  const actions = $derived(Object.entries(rewriteLabels()) as [RewriteAction, string][]);
   let hasSelection = $derived(!!app.selection?.text.trim());
   let compileErrors = $derived(app.lastCompile?.diagnostics.some((d) => d.severity === 'error') ?? false);
 
@@ -39,41 +40,41 @@
   }
 
   function copy(text: string) {
-    void navigator.clipboard.writeText(text).then(() => app.flash('已复制'));
+    void navigator.clipboard.writeText(text).then(() => app.flash(tr('已复制', 'Copied')));
   }
 
   type Proposal = Extract<AiMessage, { kind: 'proposal' }>;
-  const statusText: Record<Proposal['status'], string> = {
-    streaming: '生成中…',
+  const statusText: Record<Proposal['status'], string> = $derived({
+    streaming: tr('生成中…', 'Generating…'),
     ready: '',
-    accepted: '已替换原文 · ⌘Z 可撤销',
-    rejected: '已放弃，原文未改动',
-    stale: '原文已被修改，未替换',
+    accepted: tr('已替换原文 · ⌘Z 可撤销', 'Replaced · ⌘Z to undo'),
+    rejected: tr('已放弃，原文未改动', 'Discarded; the original is unchanged'),
+    stale: tr('原文已被修改，未替换', 'The original has changed; not replaced'),
     error: '',
-  };
+  });
 </script>
 
-<aside aria-label="AI 助手">
+<aside aria-label={tr('AI 助手', 'AI assistant')}>
   <div class="head">
-    <span class="strong">AI 助手</span>
+    <span class="strong">{tr('AI 助手', 'AI Assistant')}</span>
     {#if ai.info}
-      <button class="model" onclick={() => (ai.showSettings = !ai.showSettings)} title="AI 设置">
-        {ai.configured ? ai.modelName : '未配置'}
+      <button class="model" onclick={() => (ai.showSettings = !ai.showSettings)} title={tr('AI 设置', 'AI settings')}>
+        {ai.configured ? ai.modelName : tr('未配置', 'Not set up')}
         <Icon name="settings" size={13} />
       </button>
     {/if}
-    <button class="x" aria-label="清空对话" title="清空对话" onclick={() => ai.clear()} disabled={!!ai.running}>
+    <button class="x" aria-label={tr('清空对话', 'Clear chat')} title={tr('清空对话', 'Clear chat')} onclick={() => ai.clear()} disabled={!!ai.running}>
       <Icon name="trash" size={14} />
     </button>
-    <button class="x" aria-label="收起 AI 面板" onclick={() => (app.aiOpen = false)}><Icon name="close" size={14} /></button>
+    <button class="x" aria-label={tr('收起 AI 面板', 'Hide AI panel')} onclick={() => (app.aiOpen = false)}><Icon name="close" size={14} /></button>
   </div>
 
   {#if ai.showSettings || (ai.info && !ai.configured)}
     <AiSettingsView />
   {:else}
     <div class="ctx">
-      <span class="muted small">将附带：</span>
-      {#each ai.contextChips as c (c)}<span class="chip">{c}</span>{:else}<span class="muted small">无（未打开文件）</span>{/each}
+      <span class="muted small">{tr('将附带：', 'Includes:')}</span>
+      {#each ai.contextChips as c (c)}<span class="chip">{c}</span>{:else}<span class="muted small">{tr('无（未打开文件）', 'nothing (no file open)')}</span>{/each}
     </div>
 
     <div class="list" bind:this={list}>
@@ -90,7 +91,7 @@
               <div class="text">{m.text}{#if m.streaming}<span class="caret">▍</span>{/if}</div>
               {#if !m.streaming && m.text}
                 <div class="meta">
-                  <button onclick={() => copy(m.text)}>复制</button>
+                  <button onclick={() => copy(m.text)}>{tr('复制', 'Copy')}</button>
                   {#if m.model}<span class="muted">{m.model}</span>{/if}
                 </div>
               {/if}
@@ -114,10 +115,10 @@
             {/if}
             <div class="card-foot">
               {#if m.status === 'ready'}
-                <button class="btn btn-pri" onclick={() => ai.accept(m)}>接受</button>
-                <button class="btn" onclick={() => ai.reject(m)}>放弃</button>
-                <button class="btn" onclick={() => m.rewrite && copy(m.rewrite)}>复制</button>
-                <span class="muted small right">确认后才写入文件</span>
+                <button class="btn btn-pri" onclick={() => ai.accept(m)}>{tr('接受', 'Accept')}</button>
+                <button class="btn" onclick={() => ai.reject(m)}>{tr('放弃', 'Discard')}</button>
+                <button class="btn" onclick={() => m.rewrite && copy(m.rewrite)}>{tr('复制', 'Copy')}</button>
+                <span class="muted small right">{tr('确认后才写入文件', 'Written only after you accept')}</span>
               {:else}
                 <span class="small {m.status === 'accepted' ? 'c-ok' : 'muted'}">{statusText[m.status]}</span>
               {/if}
@@ -126,28 +127,33 @@
         {/if}
       {:else}
         <div class="empty muted">
-          <p>选中编辑器里的文字，用下方按钮润色、翻译或缩写；也可以直接提问。</p>
-          <p>所有改写都以对比形式给出，接受后才写入文件。</p>
+          <p>
+            {tr(
+              '选中编辑器里的文字，用下方按钮润色、翻译或缩写；也可以直接提问。',
+              'Select text in the editor and use the buttons below to polish, translate or shorten it, or just ask a question.',
+            )}
+          </p>
+          <p>{tr('所有改写都以对比形式给出，接受后才写入文件。', 'Every rewrite is shown as a comparison and written to the file only after you accept it.')}</p>
         </div>
       {/each}
     </div>
 
     <div class="foot">
-      <div class="qa" role="group" aria-label="选区操作">
+      <div class="qa" role="group" aria-label={tr('选区操作', 'Selection actions')}>
         {#each actions as [id, label] (id)}
-          <button class="qa-btn" disabled={!hasSelection || !!ai.running} title={hasSelection ? `${label}选中的文字` : '先在编辑器中选中文字'} onclick={() => ai.rewrite(id)}>{label}</button>
+          <button class="qa-btn" disabled={!hasSelection || !!ai.running} title={hasSelection ? tr(`${label}选中的文字`, `${label}: the selected text`) : tr('先在编辑器中选中文字', 'Select text in the editor first')} onclick={() => ai.rewrite(id)}>{label}</button>
         {/each}
         {#if compileErrors}
-          <button class="qa-btn" disabled={!!ai.running} onclick={() => ai.explainError()}>解释编译错误</button>
+          <button class="qa-btn" disabled={!!ai.running} onclick={() => ai.explainError()}>{tr('解释编译错误', 'Explain Build Errors')}</button>
         {/if}
       </div>
       <div class="input">
-        <label class="sr-only" for="ask">向 AI 提问</label>
-        <textarea id="ask" rows="2" placeholder="问点什么（Enter 发送，Shift+Enter 换行）" bind:value={draft} onkeydown={onKey}></textarea>
+        <label class="sr-only" for="ask">{tr('向 AI 提问', 'Ask the AI')}</label>
+        <textarea id="ask" rows="2" placeholder={tr('问点什么（Enter 发送，Shift+Enter 换行）', 'Ask anything (Enter to send, Shift+Enter for a new line)')} bind:value={draft} onkeydown={onKey}></textarea>
         {#if ai.running}
-          <button class="btn" onclick={() => ai.stop()}>停止</button>
+          <button class="btn" onclick={() => ai.stop()}>{tr('停止', 'Stop')}</button>
         {:else}
-          <button class="btn btn-pri" disabled={!draft.trim()} onclick={send}>发送</button>
+          <button class="btn btn-pri" disabled={!draft.trim()} onclick={send}>{tr('发送', 'Send')}</button>
         {/if}
       </div>
     </div>

@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Duration;
 
-use ym_model::{BibEntry, SourceSpan};
+use ym_model::{tr, BibEntry, SourceSpan};
 
 use crate::{make_key, parse, BibError};
 
@@ -97,17 +97,20 @@ fn fetch_doi(doi: &str) -> Result<BibEntry, BibError> {
         .set("Accept", "application/x-bibtex; charset=utf-8")
         .call()
         .map_err(|e| match e {
-            ureq::Error::Status(404, _) => BibError::Network(format!("找不到 DOI：{doi}")),
+            ureq::Error::Status(404, _) => {
+                BibError::Network(tr!("找不到 DOI：{doi}", "DOI not found: {doi}"))
+            }
             other => net(other),
         })?
         .into_string()
         .map_err(net)?;
     let out = parse(Path::new("doi.bib"), &text);
-    let mut entry = out
-        .entries
-        .into_iter()
-        .next()
-        .ok_or_else(|| BibError::Network(format!("DOI {doi} 返回的不是 BibTeX")))?;
+    let mut entry = out.entries.into_iter().next().ok_or_else(|| {
+        BibError::Network(tr!(
+            "DOI {doi} 返回的不是 BibTeX",
+            "DOI {doi} did not return BibTeX"
+        ))
+    })?;
     entry
         .fields
         .entry("doi".into())
@@ -141,15 +144,19 @@ fn unescape(s: &str) -> String {
 
 /// 解析 arXiv API 返回的 Atom。返回条目以及正式发表的 DOI（如有）。
 pub fn parse_arxiv_atom(xml: &str, id: &str) -> Result<(BibEntry, Option<String>), BibError> {
-    let entry = xml_text(xml, "entry")
-        .ok_or_else(|| BibError::Network(format!("arXiv 中没有找到 {id}")))?;
+    let entry = xml_text(xml, "entry").ok_or_else(|| {
+        BibError::Network(tr!("arXiv 中没有找到 {id}", "{id} not found on arXiv"))
+    })?;
     let title = xml_text(entry, "title")
         .map(|t| unescape(&t.split_whitespace().collect::<Vec<_>>().join(" ")));
     if title
         .as_deref()
         .is_none_or(|t| t.is_empty() || t == "Error")
     {
-        return Err(BibError::Network(format!("arXiv 中没有找到 {id}")));
+        return Err(BibError::Network(tr!(
+            "arXiv 中没有找到 {id}",
+            "{id} not found on arXiv"
+        )));
     }
     let mut authors = Vec::new();
     let mut rest = entry;

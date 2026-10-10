@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use crate::AiError;
+use ym_model::tr;
 
 const KEYCHAIN_SERVICE: &str = "app.yanmo.desktop";
 
@@ -19,9 +20,10 @@ pub enum ProviderKind {
 
 impl ProviderKind {
     pub fn label(self) -> &'static str {
-        match self {
-            ProviderKind::Anthropic => "Anthropic",
-            ProviderKind::OpenaiCompatible => "OpenAI 兼容接口",
+        match (self, ym_model::lang()) {
+            (ProviderKind::Anthropic, _) => "Anthropic",
+            (ProviderKind::OpenaiCompatible, ym_model::Lang::Zh) => "OpenAI 兼容接口",
+            (ProviderKind::OpenaiCompatible, ym_model::Lang::En) => "OpenAI-compatible API",
         }
     }
 
@@ -71,7 +73,9 @@ impl AiSettings {
     }
 
     pub fn save(&self) -> Result<(), AiError> {
-        let path = settings_path().ok_or_else(|| AiError::Other("找不到用户目录".into()))?;
+        let path = settings_path().ok_or_else(|| {
+            AiError::Other(tr!("找不到用户目录", "Cannot find the home directory"))
+        })?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| AiError::Other(e.to_string()))?;
         }

@@ -116,15 +116,21 @@ pub fn build(task: &Task, ctx: &TaskContext) -> ChatRequest {
             }
             ChatRequest { system: BASE.to_owned(), messages }
         }
-        Task::ExplainError { diagnostics, source } => ChatRequest {
+        Task::ExplainError { diagnostics, source } => {
+            let answer_lang = match ym_model::lang() {
+                ym_model::Lang::Zh => "Chinese",
+                ym_model::Lang::En => "English",
+            };
+            ChatRequest {
             system: BASE.to_owned(),
             messages: vec![Message {
                 role: Role::User,
                 content: format!(
-                    "{context}The LaTeX build reported these problems:\n<diagnostics>\n{diagnostics}\n</diagnostics>\n\nRelevant source (with line numbers):\n<source>\n{source}\n</source>\n\nExplain the likely cause in plain language and show the minimal fix as a LaTeX code block. Answer in Chinese if the manuscript is Chinese, otherwise in the user's interface language (Chinese)."
+                    "{context}The LaTeX build reported these problems:\n<diagnostics>\n{diagnostics}\n</diagnostics>\n\nRelevant source (with line numbers):\n<source>\n{source}\n</source>\n\nExplain the likely cause in plain language and show the minimal fix as a LaTeX code block. Answer in {answer_lang}."
                 ),
             }],
-        },
+            }
+        }
     }
 }
 

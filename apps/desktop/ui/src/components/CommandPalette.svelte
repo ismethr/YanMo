@@ -3,7 +3,8 @@
   import { app, PDF_TAB } from '../lib/store.svelte';
   import { listCommands } from '../lib/backend';
   import type { CommandMeta } from '../lib/types';
-  import { ai, REWRITE_LABELS } from '../lib/ai-store.svelte';
+  import { ai, rewriteLabels } from '../lib/ai-store.svelte';
+  import { i18n, tr } from '../lib/i18n.svelte';
   import type { RewriteAction } from '../lib/ai';
 
   interface Item {
@@ -14,29 +15,43 @@
   }
 
   // 界面命令；后端命令注册表中的命令一并列出（只读展示，供 Agent / CLI 对照 ID）
-  const uiItems: Item[] = [
-    { id: 'project.open', title: '打开文件夹…', key: '⌘O', run: () => app.openFolder() },
-    { id: 'file.save', title: '保存当前文件', key: '⌘S', run: () => app.saveActive() },
-    { id: 'compile.run', title: '编译论文', key: '⌘B', run: () => app.compile() },
-    { id: 'synctex.forward', title: '在 PDF 中定位当前行', key: '⌥⌘J', run: () => app.forwardSync() },
-    { id: 'export.docx', title: '导出为 Word（.docx）', run: () => app.exportDocx() },
-    { id: 'compile.auto', title: '切换：保存后自动编译', run: () => { app.autoCompile = !app.autoCompile; app.flash(app.autoCompile ? '已开启保存后自动编译' : '已关闭保存后自动编译'); } },
-    { id: 'check.run', title: '重新检查项目', run: () => { app.showPanel('problems'); void app.refresh(); } },
-    { id: 'view.outline', title: '显示大纲', run: () => (app.activity = 'outline') },
-    { id: 'view.files', title: '显示文件', run: () => (app.activity = 'files') },
-    { id: 'view.assets', title: '显示图表资产', run: () => (app.activity = 'assets') },
-    { id: 'view.bib', title: '显示文献库', run: () => (app.activity = 'bib') },
-    { id: 'view.open_pdf', title: '打开 PDF 预览', run: () => app.openFile(PDF_TAB) },
-    { id: 'view.toggle_panel', title: '切换底部面板', key: '⌘J', run: () => app.togglePanel() },
-    ...(Object.entries(REWRITE_LABELS) as [RewriteAction, string][]).map(([a, label]) => ({
+  const uiItems: Item[] = $derived([
+    { id: 'project.open', title: tr('打开文件夹…', 'Open Folder…'), key: '⌘O', run: () => app.openFolder() },
+    { id: 'file.save', title: tr('保存当前文件', 'Save File'), key: '⌘S', run: () => app.saveActive() },
+    { id: 'compile.run', title: tr('编译论文', 'Compile Paper'), key: '⌘B', run: () => app.compile() },
+    { id: 'synctex.forward', title: tr('在 PDF 中定位当前行', 'Show Current Line in PDF'), key: '⌥⌘J', run: () => app.forwardSync() },
+    { id: 'export.docx', title: tr('导出为 Word（.docx）', 'Export to Word (.docx)'), run: () => app.exportDocx() },
+    {
+      id: 'compile.auto',
+      title: tr('切换：保存后自动编译', 'Toggle: Compile on Save'),
+      run: () => {
+        app.autoCompile = !app.autoCompile;
+        app.flash(
+          app.autoCompile ? tr('已开启保存后自动编译', 'Compile on save is on') : tr('已关闭保存后自动编译', 'Compile on save is off'),
+        );
+      },
+    },
+    { id: 'check.run', title: tr('重新检查项目', 'Check Project Again'), run: () => { app.showPanel('problems'); void app.refresh(); } },
+    { id: 'view.outline', title: tr('显示大纲', 'Show Outline'), run: () => (app.activity = 'outline') },
+    { id: 'view.files', title: tr('显示文件', 'Show Files'), run: () => (app.activity = 'files') },
+    { id: 'view.assets', title: tr('显示图表资产', 'Show Figures & Tables'), run: () => (app.activity = 'assets') },
+    { id: 'view.bib', title: tr('显示文献库', 'Show Bibliography'), run: () => (app.activity = 'bib') },
+    { id: 'view.open_pdf', title: tr('打开 PDF 预览', 'Open PDF Preview'), run: () => app.openFile(PDF_TAB) },
+    { id: 'view.toggle_panel', title: tr('切换底部面板', 'Toggle Bottom Panel'), key: '⌘J', run: () => app.togglePanel() },
+    ...(Object.entries(rewriteLabels()) as [RewriteAction, string][]).map(([a, label]) => ({
       id: `ai.${a}`,
-      title: `AI：${label}选中的文字`,
+      title: tr(`AI：${label}选中的文字`, `AI: ${label} (selection)`),
       run: () => void ai.rewrite(a),
     })),
-    { id: 'ai.explain_error', title: 'AI：解释编译错误', run: () => { app.aiOpen = true; void ai.explainError(); } },
-    { id: 'ai.settings', title: 'AI 设置', run: () => { app.aiOpen = true; ai.showSettings = true; } },
-    { id: 'view.toggle_ai', title: '切换 AI 面板', key: '⌘I', run: () => (app.aiOpen = !app.aiOpen) },
-  ];
+    { id: 'ai.explain_error', title: tr('AI：解释编译错误', 'AI: Explain Build Errors'), run: () => { app.aiOpen = true; void ai.explainError(); } },
+    { id: 'ai.settings', title: tr('AI 设置', 'AI Settings'), run: () => { app.aiOpen = true; ai.showSettings = true; } },
+    { id: 'view.toggle_ai', title: tr('切换 AI 面板', 'Toggle AI Panel'), key: '⌘I', run: () => (app.aiOpen = !app.aiOpen) },
+    {
+      id: 'app.set_lang',
+      title: i18n.lang === 'zh' ? 'Switch to English（切换为英文界面）' : '切换为中文界面 (Switch to Chinese)',
+      run: () => void app.switchLang(i18n.lang === 'zh' ? 'en' : 'zh'),
+    },
+  ]);
 
   let q = $state('');
   let sel = $state(0);
@@ -52,7 +67,11 @@
     const ids = new Set(uiItems.map((i) => i.id));
     const extra: Item[] = backend
       .filter((c) => !ids.has(c.id))
-      .map((c) => ({ id: c.id, title: `${c.title}（后端命令）`, run: () => app.flash(`可用 ym exec ${c.id} 调用`) }));
+      .map((c) => ({
+        id: c.id,
+        title: tr(`${c.title}（后端命令）`, `${c.title_en} (backend command)`),
+        run: () => app.flash(tr(`可用 ym exec ${c.id} 调用`, `Run it with ym exec ${c.id}`)),
+      }));
     const s = q.trim().toLowerCase();
     return [...uiItems, ...extra].filter((i) => !s || i.id.includes(s) || i.title.toLowerCase().includes(s));
   });
@@ -75,9 +94,9 @@
 </script>
 
 <div class="backdrop" role="presentation" onclick={() => (app.palette = false)}>
-  <div class="dialog" role="dialog" aria-label="命令面板" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={onKey}>
-    <label class="sr-only" for="pq">搜索命令</label>
-    <input id="pq" bind:this={input} bind:value={q} oninput={() => (sel = 0)} placeholder="> 输入命令，如 open、大纲、check" />
+  <div class="dialog" role="dialog" aria-label={tr('命令面板', 'Command palette')} tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={onKey}>
+    <label class="sr-only" for="pq">{tr('搜索命令', 'Search commands')}</label>
+    <input id="pq" bind:this={input} bind:value={q} oninput={() => (sel = 0)} placeholder={tr('> 输入命令，如 open、大纲、check', '> Type a command, e.g. open, outline, check')} />
     <div class="list" role="listbox">
       {#each items as it, i (it.id)}
         <button role="option" aria-selected={i === sel} class:sel={i === sel} onclick={() => run(it)} onmouseenter={() => (sel = i)}>
@@ -86,7 +105,7 @@
           {#if it.key}<span class="key">{it.key}</span>{/if}
         </button>
       {:else}
-        <p class="muted none">没有匹配的命令</p>
+        <p class="muted none">{tr('没有匹配的命令', 'No matching commands')}</p>
       {/each}
     </div>
   </div>

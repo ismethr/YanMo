@@ -1,9 +1,10 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
   import { ai } from '../lib/ai-store.svelte';
+  import { tr } from '../lib/i18n.svelte';
 
   let compileErrors = $derived(app.lastCompile?.diagnostics.filter((d) => d.severity === 'error').length ?? 0);
-  const label = { error: '错误', warning: '警告', badbox: '排版' } as const;
+  let label = $derived({ error: tr('错误', 'Error'), warning: tr('警告', 'Warning'), badbox: tr('排版', 'Layout') });
 
   // 面板高度拖拽
   function startResize(e: PointerEvent) {
@@ -22,34 +23,34 @@
   }
 </script>
 
-<section aria-label="面板" style:height="{app.layout.panelHeight}px">
-  <div class="resizer" role="separator" aria-orientation="horizontal" aria-label="调整面板高度" onpointerdown={startResize}></div>
+<section aria-label={tr('面板', 'Panel')} style:height="{app.layout.panelHeight}px">
+  <div class="resizer" role="separator" aria-orientation="horizontal" aria-label={tr('调整面板高度', 'Resize panel')} onpointerdown={startResize}></div>
   <div class="head" role="tablist">
     <button role="tab" aria-selected={app.bottom === 'problems'} class:on={app.bottom === 'problems'} onclick={() => (app.bottom = 'problems')}>
-      问题 <span class="chip">{app.check?.issues.length ?? 0}</span>
+      {tr('问题', 'Problems')} <span class="chip">{app.check?.issues.length ?? 0}</span>
     </button>
     <button role="tab" aria-selected={app.bottom === 'log'} class:on={app.bottom === 'log'} onclick={() => (app.bottom = 'log')}>
-      编译日志 {#if compileErrors}<span class="chip c-err">{compileErrors}</span>{/if}
+      {tr('编译日志', 'Build Log')} {#if compileErrors}<span class="chip c-err">{compileErrors}</span>{/if}
     </button>
     <span class="hint muted">
-      {#if app.bottom === 'problems'}与 <span class="mono">ym check</span> 同源{:else if app.lastCompile}{app.lastCompile.engine} · {(app.lastCompile.duration_ms / 1000).toFixed(1)}s{/if}
+      {#if app.bottom === 'problems'}{tr('与', 'same as')} <span class="mono">ym check</span>{tr(' 同源', '')}{:else if app.lastCompile}{app.lastCompile.engine} · {(app.lastCompile.duration_ms / 1000).toFixed(1)}s{/if}
     </span>
-    <button class="close" aria-label="收起面板（⌘J）" title="收起面板（⌘J）" onclick={() => app.togglePanel()}>×</button>
+    <button class="close" aria-label={tr('收起面板（⌘J）', 'Hide panel (⌘J)')} title={tr('收起面板（⌘J）', 'Hide panel (⌘J)')} onclick={() => app.togglePanel()}>×</button>
   </div>
   <div class="body">
     {#if app.bottom === 'problems'}
       {#each app.check?.issues ?? [] as p, i (i)}
         <button class="prob" onclick={() => p.file && app.openFile(p.file, p.line ?? 1)}>
-          <span class={p.severity === 'error' ? 'c-err' : 'c-warn'} aria-label={p.severity === 'error' ? '错误' : '警告'}>{p.severity === 'error' ? '✕' : '!'}</span>
+          <span class={p.severity === 'error' ? 'c-err' : 'c-warn'} aria-label={p.severity === 'error' ? label.error : label.warning}>{p.severity === 'error' ? '✕' : '!'}</span>
           <span class="msg">{p.message}</span>
           <span class="mono code">{p.code}</span>
           <span class="loc">{p.file ?? ''}{p.line ? `:${p.line}` : ''}</span>
         </button>
       {:else}
-        <p class="c-ok pad">{app.check ? '未发现问题' : '尚未检查（项目缺少主文件？）'}</p>
+        <p class="c-ok pad">{app.check ? tr('未发现问题', 'No problems found') : tr('尚未检查（项目缺少主文件？）', 'Not checked yet (is the main file missing?)')}</p>
       {/each}
     {:else if app.compiling && !app.lastCompile}
-      <p class="muted pad">编译中…</p>
+      <p class="muted pad">{tr('编译中…', 'Compiling…')}</p>
     {:else if app.lastCompile}
       {#each app.lastCompile.diagnostics as d, i (i)}
         <button class="prob" onclick={() => d.file && app.openFile(d.file, d.line ?? 1)}>
@@ -59,14 +60,16 @@
         </button>
       {/each}
       {#if compileErrors}
-        <button class="explain" onclick={() => { app.aiOpen = true; void ai.explainError(); }}>让 AI 解释这些错误</button>
+        <button class="explain" onclick={() => { app.aiOpen = true; void ai.explainError(); }}>{tr('让 AI 解释这些错误', 'Ask AI to explain these errors')}</button>
       {/if}
       <details>
-        <summary class="muted">原始日志（末尾 40 行）</summary>
+        <summary class="muted">{tr('原始日志（末尾 40 行）', 'Raw log (last 40 lines)')}</summary>
         <pre class="mono">{app.lastCompile.log_tail}</pre>
       </details>
     {:else}
-      <p class="muted pad">还没有编译。按 ⌘B 编译；默认保存后自动编译。</p>
+      <p class="muted pad">
+        {tr('还没有编译。按 ⌘B 编译；默认保存后自动编译。', 'Not compiled yet. Press ⌘B to compile; by default the paper also compiles on save.')}
+      </p>
     {/if}
   </div>
 </section>
@@ -97,9 +100,16 @@
     color: var(--fg);
     border-bottom-color: var(--accent);
   }
+  .head > button {
+    white-space: nowrap;
+  }
   .hint {
     margin-left: auto;
+    min-width: 0;
     font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .close {
     width: 22px;

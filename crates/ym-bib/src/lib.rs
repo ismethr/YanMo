@@ -4,7 +4,7 @@ pub mod import;
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use ym_model::{BibEntry, SourceSpan};
+use ym_model::{tr, BibEntry, SourceSpan};
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum BibError {
@@ -88,7 +88,15 @@ impl BibParser<'_> {
         let close = match self.b.get(self.pos) {
             Some(b'{') => b'}',
             Some(b'(') => b')',
-            _ => return self.error(at, "条目类型后缺少 { 或 ("),
+            _ => {
+                return self.error(
+                    at,
+                    &tr!(
+                        "条目类型后缺少 {{ 或 (",
+                        "expected {{ or ( after the entry type"
+                    ),
+                )
+            }
         };
         self.pos += 1;
         if matches!(ty.as_str(), "comment" | "preamble" | "string") {
@@ -105,7 +113,7 @@ impl BibParser<'_> {
             self.skip_ws();
             match self.b.get(self.pos) {
                 None => {
-                    self.error(at, &format!("条目 {key} 未闭合"));
+                    self.error(at, &tr!("条目 {key} 未闭合", "entry {key} is not closed"));
                     break;
                 }
                 Some(&c) if c == close => {
@@ -115,7 +123,14 @@ impl BibParser<'_> {
                 Some(b',') => self.pos += 1,
                 Some(b'@') => {
                     // 缺少右括号，下一个条目已开始：在此恢复
-                    self.error(at, &format!("条目 {key} 缺少结尾的 {}", close as char));
+                    self.error(
+                        at,
+                        &tr!(
+                            "条目 {key} 缺少结尾的 {c}",
+                            "entry {key} is missing the closing {c}",
+                            c = close as char
+                        ),
+                    );
                     break;
                 }
                 Some(_) => {
@@ -124,7 +139,13 @@ impl BibParser<'_> {
                         .to_ascii_lowercase();
                     if name.is_empty() {
                         let here = self.pos;
-                        self.error(here, &format!("条目 {key} 中有无法识别的字符"));
+                        self.error(
+                            here,
+                            &tr!(
+                                "条目 {key} 中有无法识别的字符",
+                                "unexpected character in entry {key}"
+                            ),
+                        );
                         self.pos += 1;
                         while !self.src.is_char_boundary(self.pos) {
                             self.pos += 1;
@@ -134,7 +155,10 @@ impl BibParser<'_> {
                     self.skip_ws();
                     if self.b.get(self.pos) != Some(&b'=') {
                         let here = self.pos;
-                        self.error(here, &format!("字段 {name} 后缺少 ="));
+                        self.error(
+                            here,
+                            &tr!("字段 {name} 后缺少 =", "expected = after field {name}"),
+                        );
                         continue;
                     }
                     self.pos += 1;
@@ -145,7 +169,7 @@ impl BibParser<'_> {
         }
 
         if key.is_empty() {
-            self.error(at, "条目缺少引用 key");
+            self.error(at, &tr!("条目缺少引用 key", "entry has no citation key"));
             return;
         }
         let line = self.line(at);

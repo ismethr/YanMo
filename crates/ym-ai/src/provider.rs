@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use crate::settings::{get_key, AiSettings, ProviderKind};
 use crate::{AiError, ChatRequest, Role};
+use ym_model::tr;
 
 /// 默认接口地址；可用环境变量 `ANTHROPIC_BASE_URL` 覆盖（与官方 SDK 的约定一致，便于走代理）
 const ANTHROPIC_BASE: &str = "https://api.anthropic.com";
@@ -142,7 +143,7 @@ fn anthropic(
             "message_start" => {
                 if let Some(m) = ev.pointer("/message/model").and_then(Value::as_str) {
                     if m != out.model {
-                        on_event(StreamEvent::Notice(format!("由 {m} 作答")));
+                        on_event(StreamEvent::Notice(tr!("由 {m} 作答", "Answered by {m}")));
                     }
                     out.model = m.to_owned();
                 }
@@ -157,9 +158,11 @@ fn anthropic(
                     let to = ev
                         .pointer("/content_block/to/model")
                         .and_then(Value::as_str)
-                        .unwrap_or("其他模型");
-                    on_event(StreamEvent::Notice(format!(
-                        "原模型拒绝了这个请求，已由 {to} 继续"
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| tr!("其他模型", "another model"));
+                    on_event(StreamEvent::Notice(tr!(
+                        "原模型拒绝了这个请求，已由 {to} 继续",
+                        "The original model declined this request; {to} took over"
                     )));
                 }
             }
@@ -178,7 +181,7 @@ fn anthropic(
                         let cat = ev
                             .pointer("/delta/stop_details/category")
                             .and_then(Value::as_str)
-                            .map(|c| format!("（类别：{c}）"))
+                            .map(|c| tr!("（类别：{c}）", " (category: {c})"))
                             .unwrap_or_default();
                         refusal = Some(cat);
                     }
@@ -191,8 +194,9 @@ fn anthropic(
                 let message = ev
                     .pointer("/error/message")
                     .and_then(Value::as_str)
-                    .unwrap_or("未知错误");
-                return Err(AiError::Other(message.to_owned()));
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| tr!("未知错误", "Unknown error"));
+                return Err(AiError::Other(message));
             }
             _ => {}
         }
@@ -213,9 +217,10 @@ fn openai(
     let base = settings.openai_base_url.trim().trim_end_matches('/');
     let model = settings.openai_model.trim();
     if base.is_empty() || model.is_empty() {
-        return Err(AiError::Other(
-            "请先在 AI 设置中填写接口地址和模型名".into(),
-        ));
+        return Err(AiError::Other(tr!(
+            "请先在 AI 设置中填写接口地址和模型名",
+            "Set the API URL and model name in AI settings first"
+        )));
     }
     let mut messages = vec![json!({ "role": "system", "content": req.system })];
     messages.extend(req.messages.iter().map(|m| {

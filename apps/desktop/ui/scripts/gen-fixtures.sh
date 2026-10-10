@@ -7,8 +7,10 @@ OUT=apps/desktop/ui/src/lib/fixtures
 SAMPLE=examples/sample-paper
 mkdir -p "$OUT"
 for id in project.info project.tree project.index check.run compile.run compile.pdf; do
-  cargo run -q -p ym-cli -- -C "$SAMPLE" exec "$id" > "$OUT/$id.json"
+  cargo run -q -p ym-cli -- -C "$SAMPLE" --lang zh exec "$id" > "$OUT/$id.json"
 done
+# 英文界面下的检查结果
+cargo run -q -p ym-cli -- -C "$SAMPLE" --lang en exec check.run > "$OUT/check.run.en.json"
 node -e '
 const fs = require("fs"), path = require("path");
 const [out, sample] = process.argv.slice(1);

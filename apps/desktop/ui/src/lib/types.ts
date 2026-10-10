@@ -87,6 +87,7 @@ export interface CheckResult {
 export interface CommandMeta {
   id: string;
   title: string;
+  title_en: string;
   mutating: boolean;
 }
 

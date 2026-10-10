@@ -9,6 +9,7 @@ mod workspace;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
+use ym_model::tr;
 
 pub use workspace::{CompileJob, ExportJob, Workspace};
 
@@ -16,8 +17,10 @@ pub use workspace::{CompileJob, ExportJob, Workspace};
 pub struct CommandMeta {
     /// 约定 `<域>.<动作>`，例如 `project.open`、`check.run`
     pub id: &'static str,
-    /// 显示名（i18n 之前先用中文）
+    /// 中文显示名
     pub title: &'static str,
+    /// 英文显示名
+    pub title_en: &'static str,
     /// 参数的 JSON Schema，同时用于 MCP tool 描述与 AI 工具调用
     pub params_schema: Value,
     /// 是否修改项目文件；修改类命令在 AI/MCP 调用时必须经用户确认
@@ -26,11 +29,11 @@ pub struct CommandMeta {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CommandError {
-    #[error("未知命令：{0}")]
+    #[error("{}", tr!("未知命令：{c}", "Unknown command: {c}", c = .0))]
     Unknown(String),
-    #[error("参数错误：{0}")]
+    #[error("{}", tr!("参数错误：{e}", "Invalid parameters: {e}", e = .0))]
     InvalidParams(String),
-    #[error("尚未打开项目")]
+    #[error("{}", tr!("尚未打开项目", "No project is open"))]
     NoProject,
     #[error("{0}")]
     Failed(String),

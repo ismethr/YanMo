@@ -4,61 +4,76 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use ym_check::{Issue, Severity};
-use ym_model::Section;
+use ym_model::{tr, Lang, Section};
 
 #[derive(Parser)]
-#[command(name = "ym", version, about = "研墨 YanMo 命令行")]
+#[command(
+    name = "ym",
+    version,
+    about = "YanMo (研墨) command line: check, compile and export LaTeX papers"
+)]
 struct Cli {
-    /// 项目根目录，默认当前目录
+    /// Project root directory
     #[arg(short = 'C', long, default_value = ".")]
     project: PathBuf,
-    /// 主文件（相对项目根目录），默认自动识别
+    /// Main file, relative to the project root (detected automatically by default)
     #[arg(long)]
     main: Option<PathBuf>,
-    /// 以 JSON 输出，便于脚本与 Agent 消费
+    /// Print JSON, for scripts and agents
     #[arg(long)]
     json: bool,
+    /// Message language: zh or en (defaults to $YM_LANG, then the system locale)
+    #[arg(long, global = true)]
+    lang: Option<String>,
     #[command(subcommand)]
     cmd: Cmd,
 }
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// 编译论文；输出在 .yanmo/build/，有错误时退出码为 1
+    /// Compile the paper into .yanmo/build/; exits with 1 on errors
     Compile {
-        /// 指定引擎：tectonic / xelatex / pdflatex / lualatex（默认自动选择）
+        /// Engine: tectonic / xelatex / pdflatex / lualatex (chosen automatically by default)
         #[arg(long)]
         engine: Option<String>,
     },
-    /// 打印大纲与字数
+    /// Print the outline and word counts
     Outline,
-    /// 检查引用、文献、图片问题；有错误时退出码为 1（可用于 CI）
+    /// Check references, citations and images; exits with 1 on errors (for CI)
     Check {
-        /// 警告也视为失败
+        /// Treat warnings as failures too
         #[arg(long)]
         strict: bool,
     },
-    /// 用 Pandoc 导出为 Word（.docx）；先编译可让交叉引用显示为编号
+    /// Export to Word (.docx) with Pandoc; compile first so cross-references show numbers
     Export {
-        /// 输出路径，相对项目根目录（默认 .yanmo/export/<主文件名>.docx）
+        /// Output path, relative to the project root (default .yanmo/export/<main>.docx)
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
-    /// 通过 DOI / arXiv ID 导入文献
+    /// Import a reference by DOI or arXiv ID
     BibImport { id: String },
-    /// 执行命令注册表中的任意命令，例如 `ym exec project.index`；不带 ID 时列出所有命令
+    /// Run any registered command, e.g. `ym exec project.index`; lists all commands without an ID
     Exec {
         id: Option<String>,
-        /// JSON 参数，例如 '{"path":"sections/intro.tex"}'
+        /// JSON parameters, e.g. '{"path":"sections/intro.tex"}'
         params: Option<String>,
     },
 }
 
 fn main() -> ExitCode {
-    match run(Cli::parse()) {
+    let cli = Cli::parse();
+    let lang = cli
+        .lang
+        .clone()
+        .or_else(|| std::env::var("YM_LANG").ok())
+        .and_then(|l| Lang::parse(&l))
+        .unwrap_or_else(Lang::from_env);
+    ym_model::set_lang(lang);
+    match run(cli) {
         Ok(code) => code,
         Err(e) => {
-            eprintln!("错误：{e:#}");
+            eprintln!("{}{e:#}", tr!("错误：", "error: "));
             ExitCode::from(2)
         }
     }
@@ -70,14 +85,20 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
         let main = match &cli.main {
             Some(m) => m.clone(),
             None => ym_latex::find_main(root).with_context(|| {
-                format!(
-                    "在 {} 中找不到含 \\documentclass 的主文件，可用 --main 指定",
-                    root.display()
+                tr!(
+                    "在 {r} 中找不到含 \\documentclass 的主文件，可用 --main 指定",
+                    "No main file with \\documentclass found in {r}; use --main to choose one",
+                    r = root.display()
                 )
             })?,
         };
-        ym_latex::index_project(root, &main)
-            .with_context(|| format!("无法读取主文件 {}", root.join(&main).display()))
+        ym_latex::index_project(root, &main).with_context(|| {
+            tr!(
+                "无法读取主文件 {p}",
+                "Cannot read the main file {p}",
+                p = root.join(&main).display()
+            )
+        })
     };
 
     match cli.cmd {
@@ -92,12 +113,19 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 })?;
             } else {
                 println!(
-                    "{}  共 {} 字",
+                    "{}  {}",
                     project.main.display(),
-                    project.total_words()
+                    tr!("共 {n} 字", "{n} words total", n = project.total_words())
                 );
                 if project.front_words > 0 {
-                    println!("  （前置内容）  {} 字", project.front_words);
+                    println!(
+                        "  {}",
+                        tr!(
+                            "（前置内容）  {n} 字",
+                            "(front matter)  {n} words",
+                            n = project.front_words
+                        )
+                    );
                 }
                 print_outline(&project.outline, 1);
             }
@@ -120,9 +148,15 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                     println!("{}", format_issue(issue));
                 }
                 if report.issues.is_empty() {
-                    println!("✓ 未发现问题");
+                    println!("{}", tr!("✓ 未发现问题", "✓ No problems found"));
                 } else {
-                    println!("\n{errors} 个错误，{warnings} 个警告");
+                    println!(
+                        "\n{}",
+                        tr!(
+                            "{errors} 个错误，{warnings} 个警告",
+                            "{errors} errors, {warnings} warnings"
+                        )
+                    );
                 }
             }
             let failed = errors > 0 || (strict && warnings > 0);
@@ -136,8 +170,16 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             let registry = ym_commands::Registry::with_builtins();
             let Some(id) = id else {
                 for m in registry.list() {
-                    let mark = if m.mutating { "  [修改文件]" } else { "" };
-                    println!("{:<16} {}{mark}", m.id, m.title);
+                    let mark = if m.mutating {
+                        tr!("  [修改文件]", "  [writes files]")
+                    } else {
+                        String::new()
+                    };
+                    let title = match ym_model::lang() {
+                        Lang::Zh => m.title,
+                        Lang::En => m.title_en,
+                    };
+                    println!("{:<18} {title}{mark}", m.id);
                 }
                 return Ok(ExitCode::SUCCESS);
             };
@@ -147,7 +189,8 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 ws.set_main(m, false)?;
             }
             let params = match params {
-                Some(p) => serde_json::from_str(&p).context("参数不是合法 JSON")?,
+                Some(p) => serde_json::from_str(&p)
+                    .with_context(|| tr!("参数不是合法 JSON", "Parameters are not valid JSON"))?,
                 None => serde_json::Value::Null,
             };
             print_json(&registry.execute(&mut ws, &id, params)?)?;
@@ -173,21 +216,33 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 }
                 for m in out["figures_missing"].as_array().into_iter().flatten() {
                     println!(
-                        "⚠ 图片未能转换，Word 中会缺失：{}",
-                        m.as_str().unwrap_or("")
+                        "{}",
+                        tr!(
+                            "⚠ 图片未能转换，Word 中会缺失：{f}",
+                            "⚠ Image could not be converted and will be missing in Word: {f}",
+                            f = m.as_str().unwrap_or("")
+                        )
                     );
                 }
                 if out["numbered_refs"] != true {
                     println!(
-                        "⚠ 没有找到编译生成的 .aux，交叉引用会显示为标签名；先运行 ym compile"
+                        "{}",
+                        tr!(
+                            "⚠ 没有找到编译生成的 .aux，交叉引用会显示为标签名；先运行 ym compile",
+                            "⚠ No .aux from a previous build, so cross-references will show label names; run ym compile first"
+                        )
                     );
                 }
                 let secs = out["duration_ms"].as_u64().unwrap_or(0) as f64 / 1000.0;
                 println!(
-                    "\n✓ 已导出 {}（{} 个引用编号，转换 {} 张图片，{secs:.1}s）",
-                    out["path"].as_str().unwrap_or(""),
-                    out["labels"],
-                    out["figures_converted"]
+                    "\n{}",
+                    tr!(
+                        "✓ 已导出 {p}（{l} 个引用编号，转换 {f} 张图片，{secs:.1}s）",
+                        "✓ Exported {p} ({l} reference numbers, {f} images converted, {secs:.1}s)",
+                        p = out["path"].as_str().unwrap_or(""),
+                        l = out["labels"],
+                        f = out["figures_converted"]
+                    )
                 );
             }
             Ok(ExitCode::SUCCESS)
@@ -220,14 +275,26 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
                 let engine = out["engine"].as_str().unwrap_or("");
                 match out["pdf"].as_str() {
                     Some(pdf) => println!(
-                        "\n{} {pdf}（{engine}，{secs:.1}s）",
+                        "\n{}",
                         if out["success"] == true {
-                            "✓ 已生成"
+                            tr!(
+                                "✓ 已生成 {pdf}（{engine}，{secs:.1}s）",
+                                "✓ Built {pdf} ({engine}, {secs:.1}s)"
+                            )
                         } else {
-                            "⚠ 有错误，仍生成了"
+                            tr!(
+                                "⚠ 有错误，仍生成了 {pdf}（{engine}，{secs:.1}s）",
+                                "⚠ Built {pdf} with errors ({engine}, {secs:.1}s)"
+                            )
                         }
                     ),
-                    None => println!("\n✕ 编译失败（{engine}，{secs:.1}s）"),
+                    None => println!(
+                        "\n{}",
+                        tr!(
+                            "✕ 编译失败（{engine}，{secs:.1}s）",
+                            "✕ Compilation failed ({engine}, {secs:.1}s)"
+                        )
+                    ),
                 }
             }
             Ok(if out["success"] == true {
@@ -247,15 +314,32 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             if cli.json {
                 print_json(&out)?;
             } else if out["duplicate"] == true {
-                println!("文献库中已有这篇：{}", out["key"].as_str().unwrap_or(""));
+                println!(
+                    "{}",
+                    tr!(
+                        "文献库中已有这篇：{k}",
+                        "Already in the bibliography: {k}",
+                        k = out["key"].as_str().unwrap_or("")
+                    )
+                );
             } else {
                 println!(
-                    "✓ 已导入 {} → {}",
-                    out["key"].as_str().unwrap_or(""),
-                    out["file"].as_str().unwrap_or("")
+                    "{}",
+                    tr!(
+                        "✓ 已导入 {k} → {f}",
+                        "✓ Imported {k} → {f}",
+                        k = out["key"].as_str().unwrap_or(""),
+                        f = out["file"].as_str().unwrap_or("")
+                    )
                 );
                 if out["needs_bibliography"] == true {
-                    println!("提示：新建了 .bib 文件，请在正文中用 \\bibliography 引入");
+                    println!(
+                        "{}",
+                        tr!(
+                            "提示：新建了 .bib 文件，请在正文中用 \\bibliography 引入",
+                            "Note: a new .bib file was created; add it to the paper with \\bibliography"
+                        )
+                    );
                 }
             }
             Ok(ExitCode::SUCCESS)
@@ -271,10 +355,10 @@ fn print_outline(sections: &[Section], depth: usize) {
             .map(|l| format!("  [{l}]"))
             .unwrap_or_default();
         println!(
-            "{}{}  {} 字{}  ({}:{})",
+            "{}{}  {}{}  ({}:{})",
             "  ".repeat(depth),
             s.title,
-            s.words,
+            tr!("{n} 字", "{n} words", n = s.words),
             label,
             s.span.file.display(),
             s.span.line

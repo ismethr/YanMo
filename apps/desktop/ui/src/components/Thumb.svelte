@@ -2,6 +2,7 @@
   // 缩略图：滚动到可见时才加载。
   import { onMount } from 'svelte';
   import { previewUrl } from '../lib/media';
+  import { tr } from '../lib/i18n.svelte';
 
   let { path, width = 64, height = 48, fallback = '' }: { path: string | null; width?: number; height?: number; fallback?: string } =
     $props();
@@ -29,7 +30,7 @@
   {#if src}
     <img {src} alt="" />
   {:else}
-    <span>{failed ? '无预览' : fallback}</span>
+    <span>{failed ? tr('无预览', 'No preview') : fallback}</span>
   {/if}
 </div>
 

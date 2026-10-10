@@ -6,6 +6,7 @@
   import { setDiagnostics } from '@codemirror/lint';
   import { app } from '../lib/store.svelte';
   import { diagnosticsFor, extensionsFor } from '../lib/editor';
+  import { tr } from '../lib/i18n.svelte';
 
   let { path }: { path: string } = $props();
 
@@ -109,7 +110,7 @@
     if (doc.slice(r.from, r.to) !== r.expected) {
       const at = doc.indexOf(r.expected);
       if (at < 0 || doc.indexOf(r.expected, at + 1) >= 0) {
-        app.flash('原文已被修改，无法安全替换；请重新选中后再试');
+        app.flash(tr('原文已被修改，无法安全替换；请重新选中后再试', 'The text has changed and cannot be replaced safely. Select it again and retry'));
         r.resolve(false);
         return;
       }

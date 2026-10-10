@@ -2,6 +2,7 @@
 // 浏览器预览模式用模拟数据，便于只改界面的贡献者调试。
 
 import { invoke } from '@tauri-apps/api/core';
+import { tr } from './i18n.svelte';
 import { inTauri } from './backend';
 
 export type ProviderKind = 'anthropic' | 'openai_compatible';
@@ -104,12 +105,18 @@ async function preview(id: string, task: AiTask, onText: (t: string) => void): P
     rewrite = task.selection.replace('改变了序列建模', '从根本上改变了序列建模的范式').replace(/\s+/g, ' ').trim();
     text = '```latex\n' + rewrite + '\n```';
   } else if (task.kind === 'explain_error') {
-    text = '（预览模式示例）`figures/arch.pdf` 不存在，所以 `\\includegraphics` 无法载入图片。把图片导出为 PDF 放到 figures/ 目录即可。';
+    text = tr(
+      '（预览模式示例）`figures/arch.pdf` 不存在，所以 `\\includegraphics` 无法载入图片。把图片导出为 PDF 放到 figures/ 目录即可。',
+      '(Preview sample) `figures/arch.pdf` does not exist, so `\\includegraphics` cannot load the image. Export the figure as a PDF into figures/.',
+    );
   } else {
-    text = '（预览模式示例回复）桌面应用中，这里会显示所配置模型的真实回答，并逐字流式显示。';
+    text = tr(
+      '（预览模式示例回复）桌面应用中，这里会显示所配置模型的真实回答，并逐字流式显示。',
+      '(Preview sample reply) In the desktop app, the configured model\'s real answer streams in here.',
+    );
   }
   for (const ch of text.match(/.{1,6}/gs) ?? []) {
-    if (previewCancelled.has(id)) throw new Error('已取消');
+    if (previewCancelled.has(id)) throw new Error(tr('已取消', 'Cancelled'));
     onText(ch);
     await new Promise((r) => setTimeout(r, 25));
   }

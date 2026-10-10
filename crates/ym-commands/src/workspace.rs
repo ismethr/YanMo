@@ -1,7 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 use ym_compile::{CompileOutput, CompileRequest, ExportOutput, ExportRequest, SyncTex, Toolchain};
 use ym_latex::ProjectIndex;
-use ym_model::{Engine, ProjectMeta};
+use ym_model::{tr, Engine, ProjectMeta};
 
 use crate::CommandError;
 
@@ -46,9 +46,10 @@ impl CompileJob {
 impl Workspace {
     pub fn open(&mut self, root: &Path) -> Result<(), CommandError> {
         if !root.is_dir() {
-            return Err(CommandError::Failed(format!(
-                "不是文件夹：{}",
-                root.display()
+            return Err(CommandError::Failed(tr!(
+                "不是文件夹：{p}",
+                "Not a folder: {p}",
+                p = root.display()
             )));
         }
         let root = root.canonicalize()?;
@@ -79,9 +80,10 @@ impl Workspace {
     pub fn index(&mut self) -> Result<&ProjectIndex, CommandError> {
         if self.index.is_none() {
             let root = self.root()?.to_path_buf();
-            let main = self.main.clone().ok_or_else(|| {
-                CommandError::Failed("项目中没有找到含 \\documentclass 的主文件".into())
-            })?;
+            let main = self
+                .main
+                .clone()
+                .ok_or_else(|| CommandError::Failed(no_main()))?;
             self.index = Some(ym_latex::index_project(&root, &main)?);
         }
         Ok(self.index.as_ref().expect("just set"))
@@ -99,8 +101,9 @@ impl Workspace {
             .components()
             .all(|c| matches!(c, Component::Normal(_) | Component::CurDir));
         if rel.is_empty() || !safe {
-            return Err(CommandError::InvalidParams(format!(
-                "路径必须位于项目内：{rel}"
+            return Err(CommandError::InvalidParams(tr!(
+                "路径必须位于项目内：{rel}",
+                "The path must be inside the project: {rel}"
             )));
         }
         Ok(self.root()?.join(p))
@@ -112,9 +115,10 @@ impl Workspace {
 
     pub fn compile_job(&mut self, engine: Option<Engine>) -> Result<CompileJob, CommandError> {
         let root = self.root()?.to_path_buf();
-        let main = self.main.clone().ok_or_else(|| {
-            CommandError::Failed("项目中没有找到含 \\documentclass 的主文件".into())
-        })?;
+        let main = self
+            .main
+            .clone()
+            .ok_or_else(|| CommandError::Failed(no_main()))?;
         Ok(CompileJob {
             request: CompileRequest { root, main, engine },
             toolchain: self.toolchain().clone(),
@@ -152,7 +156,7 @@ impl Workspace {
             let root = self.root()?.to_path_buf();
             let pdf = self
                 .pdf_path()
-                .ok_or_else(|| CommandError::Failed("尚未编译".into()))?;
+                .ok_or_else(|| CommandError::Failed(tr!("尚未编译", "Not compiled yet")))?;
             let path = root.join(pdf.trim_end_matches(".pdf").to_owned() + ".synctex.gz");
             self.synctex = Some(SyncTex::load(&path, &root)?);
         }
@@ -167,9 +171,10 @@ impl Workspace {
                 .any(|l| l.trim_start().starts_with("\\documentclass"))
         });
         if !is_root_doc {
-            return Err(CommandError::InvalidParams(format!(
-                "{} 不是独立文档（没有 \\documentclass）",
-                rel.display()
+            return Err(CommandError::InvalidParams(tr!(
+                "{p} 不是独立文档（没有 \\documentclass）",
+                "{p} is not a standalone document (no \\documentclass)",
+                p = rel.display()
             )));
         }
         self.main = Some(rel.to_path_buf());
@@ -185,9 +190,10 @@ impl Workspace {
 
     pub fn export_job(&mut self, output: Option<PathBuf>) -> Result<ExportJob, CommandError> {
         let root = self.root()?.to_path_buf();
-        let main = self.main.clone().ok_or_else(|| {
-            CommandError::Failed("项目中没有找到含 \\documentclass 的主文件".into())
-        })?;
+        let main = self
+            .main
+            .clone()
+            .ok_or_else(|| CommandError::Failed(no_main()))?;
         if let Some(o) = &output {
             self.resolve(&o.to_string_lossy())?;
         }
@@ -196,4 +202,11 @@ impl Workspace {
             toolchain: self.toolchain().clone(),
         })
     }
+}
+
+fn no_main() -> String {
+    tr!(
+        "项目中没有找到含 \\documentclass 的主文件",
+        "No main file with \\documentclass found in the project"
+    )
 }

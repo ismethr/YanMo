@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use ym_latex::ProjectIndex;
+use ym_model::tr;
 use ym_model::{AssetKind, BibEntry, SourceSpan};
 
 /// `\includegraphics` 省略扩展名时依次尝试的扩展名（与 pdfLaTeX/XeLaTeX 默认顺序一致）。
@@ -94,23 +95,43 @@ impl Issue {
 
     pub fn message(&self) -> String {
         match self {
-            Issue::UndefinedRef { label, .. } => format!("引用了未定义的 label `{label}`"),
-            Issue::DuplicateLabel { label, at } => {
-                format!("label `{label}` 被定义了 {} 次", at.len())
+            Issue::UndefinedRef { label, .. } => tr!(
+                "引用了未定义的 label `{label}`",
+                "reference to undefined label `{label}`"
+            ),
+            Issue::DuplicateLabel { label, at } => tr!(
+                "label `{label}` 被定义了 {n} 次",
+                "label `{label}` is defined {n} times",
+                n = at.len()
+            ),
+            Issue::UnreferencedAsset { label, kind, .. } => tr!(
+                "{kind} `{label}` 从未在正文中被引用",
+                "{kind} `{label}` is never referenced in the text",
+                kind = kind_name(*kind)
+            ),
+            Issue::UndefinedCite { key, .. } => tr!(
+                "引用了不存在的文献 `{key}`",
+                "citation `{key}` is not in the bibliography"
+            ),
+            Issue::UnusedBibEntry { key, .. } => {
+                tr!("文献 `{key}` 从未被引用", "entry `{key}` is never cited")
             }
-            Issue::UnreferencedAsset { label, kind, .. } => {
-                format!("{} `{label}` 从未在正文中被引用", kind_name(*kind))
+            Issue::DuplicateBibEntry { key, at } => tr!(
+                "文献 key `{key}` 重复出现 {n} 次",
+                "bibliography key `{key}` appears {n} times",
+                n = at.len()
+            ),
+            Issue::BibSyntax { message, .. } => {
+                tr!("bib 语法错误：{message}", "bib syntax error: {message}")
             }
-            Issue::UndefinedCite { key, .. } => format!("引用了不存在的文献 `{key}`"),
-            Issue::UnusedBibEntry { key, .. } => format!("文献 `{key}` 从未被引用"),
-            Issue::DuplicateBibEntry { key, at } => {
-                format!("文献 key `{key}` 重复出现 {} 次", at.len())
+            Issue::MissingFile { path, .. } => {
+                tr!("找不到文件 `{path}`", "file not found: `{path}`")
             }
-            Issue::BibSyntax { message, .. } => format!("bib 语法错误：{message}"),
-            Issue::MissingFile { path, .. } => format!("找不到文件 `{path}`"),
-            Issue::UnusedFigureFile { path } => {
-                format!("图片 `{}` 未被任何 \\includegraphics 使用", path.display())
-            }
+            Issue::UnusedFigureFile { path } => tr!(
+                "图片 `{p}` 未被任何 \\includegraphics 使用",
+                "image `{p}` is not used by any \\includegraphics",
+                p = path.display()
+            ),
         }
     }
 
@@ -130,13 +151,13 @@ impl Issue {
     }
 }
 
-fn kind_name(kind: AssetKind) -> &'static str {
+fn kind_name(kind: AssetKind) -> String {
     match kind {
-        AssetKind::Figure => "图",
-        AssetKind::Table => "表",
-        AssetKind::Equation => "公式",
-        AssetKind::Algorithm => "算法",
-        AssetKind::Listing => "代码",
+        AssetKind::Figure => tr!("图", "figure"),
+        AssetKind::Table => tr!("表", "table"),
+        AssetKind::Equation => tr!("公式", "equation"),
+        AssetKind::Algorithm => tr!("算法", "algorithm"),
+        AssetKind::Listing => tr!("代码", "listing"),
     }
 }
 

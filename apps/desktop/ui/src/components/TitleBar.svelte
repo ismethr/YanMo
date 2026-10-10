@@ -1,24 +1,25 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
+  import { tr } from '../lib/i18n.svelte';
 </script>
 
 <header>
   <div class="brand">
     <img class="logo" src="/icon.svg" alt="" width="22" height="22" />
-    <span>研墨</span>
+    <span>{tr('研墨', 'YanMo')}</span>
   </div>
   <button class="center" onclick={() => (app.palette = true)}>
     <Icon name="search" size={14} />
-    <span>{app.project ? `${app.project.name} — ` : ''}搜索命令、文件、label、文献</span>
+    <span>{app.project ? `${app.project.name} — ` : ''}{tr('搜索命令、文件、label、文献', 'Search commands, files, labels…')}</span>
     <span class="kbd">⇧⌘P</span>
   </button>
   <div class="actions">
-    <button class="btn btn-pri" disabled={!app.project} onclick={() => app.compile()} title="编译（⌘B）">
-      <Icon name="play" size={12} fill />{app.compiling ? '编译中…' : '编译'}
+    <button class="btn btn-pri" disabled={!app.project} onclick={() => app.compile()} title={tr('编译（⌘B）', 'Compile (⌘B)')}>
+      <Icon name="play" size={12} fill />{app.compiling ? tr('编译中…', 'Compiling…') : tr('编译', 'Compile')}
     </button>
-    <button class="btn" disabled={!app.project || app.exporting} onclick={() => app.exportDocx()} title="用 Pandoc 导出为 Word（.docx）">
-      <Icon name="word" size={14} />{app.exporting ? '导出中…' : 'Word'}
+    <button class="btn" disabled={!app.project || app.exporting} onclick={() => app.exportDocx()} title={tr('用 Pandoc 导出为 Word（.docx）', 'Export to Word (.docx) with Pandoc')}>
+      <Icon name="word" size={14} />{app.exporting ? tr('导出中…', 'Exporting…') : 'Word'}
     </button>
     <button class="btn" onclick={() => (app.aiOpen = !app.aiOpen)} aria-pressed={app.aiOpen}>
       <Icon name="sparkle" size={14} />AI

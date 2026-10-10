@@ -1,6 +1,7 @@
 // 应用状态（Svelte 5 runes）。所有对项目的读写都经由 backend.execute，即 Rust 命令注册表。
 
 import { execute, pickFolder, revealInFolder } from './backend';
+import { setLang, tr, type Lang } from './i18n.svelte';
 import type {
   CheckResult,
   CompileOutput,
@@ -148,7 +149,7 @@ class AppState {
   /** 中文论文按"字"，英文按"词" */
   get wordUnit(): string {
     const cjk = this.outlineRows.some((r) => /[\u4e00-\u9fff]/.test(r.title));
-    return cjk ? '字' : '词';
+    return cjk ? tr('字', 'chars') : tr('词', 'words');
   }
 
   // 编译与 PDF
@@ -212,7 +213,7 @@ class AppState {
     try {
       this.project = await execute<ProjectInfo>('project.open', { path: target });
     } catch (e) {
-      this.flash(`无法打开：${e}`);
+      this.flash(tr(`无法打开：${e}`, `Cannot open: ${e}`));
       return;
     }
     this.recent = [target, ...this.recent.filter((r) => r !== target)].slice(0, 8);
@@ -232,6 +233,12 @@ class AppState {
     execute<Toolchain>('compile.toolchain').then((t) => (this.toolchain = t), () => {});
     // 沿用上次编译留下的 PDF（如果有）
     await this.loadPdf(true);
+  }
+
+  /** 切换界面语言；检查结果等由后端生成的文字需要重新拉取。 */
+  async switchLang(lang: Lang) {
+    await setLang(lang);
+    if (this.project) await this.refresh();
   }
 
   /** 重新读取文件树、索引与检查结果（保存后调用）。 */
@@ -292,7 +299,7 @@ class AppState {
       await this.refresh();
       if (this.autoCompile) void this.compile();
     } catch (e) {
-      this.flash(`保存失败：${e}`);
+      this.flash(tr(`保存失败：${e}`, `Save failed: ${e}`));
     }
   }
 
@@ -314,10 +321,14 @@ class AppState {
       if (out.pdf) await this.loadPdf();
       if (!out.success) {
         const n = out.diagnostics.filter((d) => d.severity === 'error').length;
-        this.flash(out.pdf ? `编译完成，但有 ${n} 个错误` : '编译失败，详见编译日志');
+        this.flash(
+          out.pdf
+            ? tr(`编译完成，但有 ${n} 个错误`, `Compiled with ${n} error${n === 1 ? '' : 's'}`)
+            : tr('编译失败，详见编译日志', 'Compilation failed, see the build log'),
+        );
       }
     } catch (e) {
-      this.flash(`无法编译：${e}`);
+      this.flash(tr(`无法编译：${e}`, `Cannot compile: ${e}`));
     } finally {
       this.compiling = false;
     }
@@ -343,13 +354,13 @@ class AppState {
   async forwardSync(path = this.active, line = this.cursor.line) {
     if (!path || path.startsWith('yanmo://')) return;
     if (!this.pdf) {
-      this.flash('还没有 PDF，请先编译（⌘B）');
+      this.flash(tr('还没有 PDF，请先编译（⌘B）', 'No PDF yet. Compile first (⌘B)'));
       return;
     }
     try {
       const rect = await execute<PdfRect | null>('synctex.forward', { path, line });
       if (!rect) {
-        this.flash('这一行在 PDF 中没有对应位置');
+        this.flash(tr('这一行在 PDF 中没有对应位置', 'This line has no position in the PDF'));
         return;
       }
       await this.openFile(PDF_TAB);
@@ -394,11 +405,17 @@ class AppState {
       const out = await execute<ExportOutput>('export.docx');
       this.lastExport = out;
       const notes: string[] = [];
-      if (!out.numbered_refs) notes.push('交叉引用未编号（请先编译）');
-      if (out.figures_missing.length) notes.push(`${out.figures_missing.length} 张图片未能转换`);
+      if (!out.numbered_refs) notes.push(tr('交叉引用未编号（请先编译）', 'cross-references are not numbered (compile first)'));
+      if (out.figures_missing.length)
+        notes.push(tr(`${out.figures_missing.length} 张图片未能转换`, `${out.figures_missing.length} image(s) could not be converted`));
       const abs = `${this.project.root}/${out.path}`;
-      this.flash(`已导出 ${out.path}${notes.length ? `；${notes.join('，')}` : ''}`, {
-        label: '在访达中显示',
+      this.flash(
+        tr(
+          `已导出 ${out.path}${notes.length ? `；${notes.join('，')}` : ''}`,
+          `Exported ${out.path}${notes.length ? `; ${notes.join(', ')}` : ''}`,
+        ),
+        {
+        label: tr('在访达中显示', 'Show in Folder'),
         run: () => void revealInFolder(abs),
       });
     } catch (e) {
@@ -431,9 +448,12 @@ class AppState {
       await this.refresh();
       const key = added.key;
       const msg = added.duplicate
-        ? `文献库中已有这篇（${key}）`
-        : `已导入 ${key} → ${added.file}${added.needs_bibliography ? '；请在正文中用 \\bibliography 引入该文件' : ''}`;
-      this.flash(msg, { label: `插入 \\cite{${key}}`, run: () => void this.insertAtCursor(`\\cite{${key}}`) });
+        ? tr(`文献库中已有这篇（${key}）`, `Already in the bibliography (${key})`)
+        : tr(
+            `已导入 ${key} → ${added.file}${added.needs_bibliography ? '；请在正文中用 \\bibliography 引入该文件' : ''}`,
+            `Imported ${key} → ${added.file}${added.needs_bibliography ? '; add this file to the paper with \\bibliography' : ''}`,
+          );
+      this.flash(msg, { label: tr(`插入 \\cite{${key}}`, `Insert \\cite{${key}}`), run: () => void this.insertAtCursor(`\\cite{${key}}`) });
       return true;
     } catch (e) {
       this.flash(String(e));
@@ -458,7 +478,7 @@ class AppState {
       ].join('\n');
       await this.insertAtCursor(snippet);
       void execute<TreeNode[]>('project.tree').then((t) => (this.tree = t));
-      this.flash(`已把图片放入 ${r.path}，并插入 figure 环境`);
+      this.flash(tr(`已把图片放入 ${r.path}，并插入 figure 环境`, `Saved the image to ${r.path} and inserted a figure environment`));
     } catch (e) {
       this.flash(String(e));
     }

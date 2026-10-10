@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { app, PDF_TAB } from './lib/store.svelte';
   import { inTauri, launchFolder } from './lib/backend';
+  import { syncBackendLang, tr } from './lib/i18n.svelte';
   import TitleBar from './components/TitleBar.svelte';
   import ActivityBar from './components/ActivityBar.svelte';
   import Sidebar from './components/Sidebar.svelte';
@@ -28,7 +29,7 @@
           if (!app.project) return;
           const images = p.paths.filter((x) => /\.(png|jpe?g|pdf|eps)$/i.test(x));
           if (!images.length) {
-            app.flash('只能拖入 PNG、JPG、PDF、EPS 图片');
+            app.flash(tr('只能拖入 PNG、JPG、PDF、EPS 图片', 'Only PNG, JPG, PDF and EPS images can be dropped'));
             return;
           }
           void (async () => {
@@ -41,6 +42,7 @@
   });
 
   onMount(async () => {
+    await syncBackendLang();
     if (inTauri) {
       const folder = await launchFolder();
       if (folder) await app.openFolder(folder);
@@ -106,7 +108,11 @@
   {#if app.palette}<CommandPalette />{/if}
   {#if dragging}
     <div class="dropzone" aria-hidden="true">
-      <div>松开以导入图片<br /><span>放入项目图片目录，并在光标处插入 figure 环境</span></div>
+      <div>
+        {tr('松开以导入图片', 'Drop to import images')}<br /><span
+          >{tr('放入项目图片目录，并在光标处插入 figure 环境', 'Saved to the project image folder and inserted as a figure at the cursor')}</span
+        >
+      </div>
     </div>
   {/if}
   {#if app.notice}

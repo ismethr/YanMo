@@ -5,12 +5,14 @@
 
 pub mod asset;
 pub mod bib;
+pub mod lang;
 pub mod outline;
 pub mod project;
 pub mod span;
 
 pub use asset::{Asset, AssetKind};
 pub use bib::BibEntry;
+pub use lang::{lang, set_lang, Lang};
 pub use outline::{Section, SectionLevel, SectionStatus};
 pub use project::{Engine, Project, ProjectMeta};
 pub use span::SourceSpan;

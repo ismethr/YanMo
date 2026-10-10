@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::{CommandError, CommandMeta, CommandResult, Registry, Workspace};
+use ym_model::tr;
 
 pub(crate) fn register(r: &mut Registry) {
     let path_param =
@@ -13,30 +14,64 @@ pub(crate) fn register(r: &mut Registry) {
     let none = json!({"type": "object", "properties": {}});
 
     r.register(
-        meta("project.open", "打开文件夹", path_param.clone(), false),
+        meta(
+            "app.set_lang",
+            ("切换界面语言", "Set Interface Language"),
+            json!({"type": "object", "properties": {"lang": {"enum": ["zh", "en"]}}, "required": ["lang"]}),
+            false,
+        ),
+        app_set_lang,
+    );
+    r.register(
+        meta(
+            "project.open",
+            ("打开文件夹", "Open Folder"),
+            path_param.clone(),
+            false,
+        ),
         project_open,
     );
     r.register(
-        meta("project.info", "项目信息", none.clone(), false),
+        meta(
+            "project.info",
+            ("项目信息", "Project Info"),
+            none.clone(),
+            false,
+        ),
         project_info,
     );
     r.register(
-        meta("project.tree", "项目文件树", none.clone(), false),
+        meta(
+            "project.tree",
+            ("项目文件树", "Project File Tree"),
+            none.clone(),
+            false,
+        ),
         project_tree,
     );
     r.register(
-        meta("project.index", "大纲、图表与字数", none.clone(), false),
+        meta(
+            "project.index",
+            ("大纲、图表与字数", "Outline, Figures and Word Count"),
+            none.clone(),
+            false,
+        ),
         project_index,
     );
     r.register(
-        meta("project.set_main", "设为主文件", path_param.clone(), false),
+        meta(
+            "project.set_main",
+            ("设为主文件", "Set as Main File"),
+            path_param.clone(),
+            false,
+        ),
         project_set_main,
     );
     r.register(
         meta(
             "export.docx",
-            "导出为 Word（Pandoc）",
-            json!({"type": "object", "properties": {"output": {"type": "string", "description": "相对项目根目录，默认 .yanmo/export/<主文件名>.docx"}}}),
+            ("导出为 Word（Pandoc）", "Export to Word (Pandoc)"),
+            json!({"type": "object", "properties": {"output": {"type": "string", "description": "Relative to the project root; defaults to .yanmo/export/<main>.docx"}}}),
             false,
         ),
         export_docx,
@@ -44,17 +79,23 @@ pub(crate) fn register(r: &mut Registry) {
     r.register(
         meta(
             "file.base64",
-            "读取二进制文件（图片、PDF）",
+            (
+                "读取二进制文件（图片、PDF）",
+                "Read Binary File (Image, PDF)",
+            ),
             path_param.clone(),
             false,
         ),
         file_base64,
     );
-    let id_param = json!({"type": "object", "properties": {"id": {"type": "string", "description": "DOI、arXiv 编号或链接"}}, "required": ["id"]});
+    let id_param = json!({"type": "object", "properties": {"id": {"type": "string", "description": "A DOI, an arXiv ID, or a link to either"}}, "required": ["id"]});
     r.register(
         meta(
             "bib.fetch",
-            "联网获取文献元数据（DOI / arXiv）",
+            (
+                "联网获取文献元数据（DOI / arXiv）",
+                "Fetch Reference Metadata (DOI / arXiv)",
+            ),
             id_param.clone(),
             false,
         ),
@@ -63,54 +104,77 @@ pub(crate) fn register(r: &mut Registry) {
     r.register(
         meta(
             "bib.add",
-            "把 BibTeX 条目加入项目文献库",
+            ("把 BibTeX 条目加入项目文献库", "Add BibTeX Entry to Bibliography"),
             json!({"type": "object", "properties": {"bibtex": {"type": "string"}, "file": {"type": "string"}}, "required": ["bibtex"]}),
             true,
         ),
         bib_add,
     );
     r.register(
-        meta("bib.import", "通过 DOI / arXiv 导入文献", id_param, true),
+        meta(
+            "bib.import",
+            (
+                "通过 DOI / arXiv 导入文献",
+                "Import Reference by DOI / arXiv",
+            ),
+            id_param,
+            true,
+        ),
         bib_import,
     );
     r.register(
         meta(
             "asset.import",
-            "导入图片到项目图片目录",
+            ("导入图片到项目图片目录", "Import Image into Project"),
             json!({"type": "object", "properties": {
-                "source": {"type": "string", "description": "本机图片的绝对路径（拖入时）"},
-                "base64": {"type": "string", "description": "图片数据（粘贴时）"},
-                "name": {"type": "string", "description": "文件名，粘贴时使用"}
+                "source": {"type": "string", "description": "Absolute path of a local image (when dropped)"},
+                "base64": {"type": "string", "description": "Image data (when pasted)"},
+                "name": {"type": "string", "description": "File name, used when pasting"}
             }}),
             true,
         ),
         asset_import,
     );
     r.register(
-        meta("check.run", "检查项目问题", none.clone(), false),
+        meta(
+            "check.run",
+            ("检查项目问题", "Check Project"),
+            none.clone(),
+            false,
+        ),
         check_run,
     );
     r.register(
         meta(
             "compile.run",
-            "编译论文",
+            ("编译论文", "Compile Paper"),
             json!({"type": "object", "properties": {"engine": {"enum": ["tectonic", "xelatex", "pdflatex", "lualatex"]}}}),
             false,
         ),
         compile_run,
     );
     r.register(
-        meta("compile.pdf", "读取编译出的 PDF", none.clone(), false),
+        meta(
+            "compile.pdf",
+            ("读取编译出的 PDF", "Read Compiled PDF"),
+            none.clone(),
+            false,
+        ),
         compile_pdf,
     );
     r.register(
-        meta("compile.toolchain", "可用的编译引擎", none, false),
+        meta(
+            "compile.toolchain",
+            ("可用的编译引擎", "Available TeX Engines"),
+            none,
+            false,
+        ),
         compile_toolchain,
     );
     r.register(
         meta(
             "synctex.forward",
-            "源码位置 → PDF 位置",
+            ("源码位置 → PDF 位置", "Source → PDF Position"),
             json!({"type": "object", "properties": {"path": {"type": "string"}, "line": {"type": "integer"}}, "required": ["path", "line"]}),
             false,
         ),
@@ -119,17 +183,20 @@ pub(crate) fn register(r: &mut Registry) {
     r.register(
         meta(
             "synctex.inverse",
-            "PDF 位置 → 源码位置",
+            ("PDF 位置 → 源码位置", "PDF → Source Position"),
             json!({"type": "object", "properties": {"page": {"type": "integer"}, "x": {"type": "number"}, "y": {"type": "number"}}, "required": ["page", "x", "y"]}),
             false,
         ),
         synctex_inverse,
     );
-    r.register(meta("file.read", "读取文件", path_param, false), file_read);
+    r.register(
+        meta("file.read", ("读取文件", "Read File"), path_param, false),
+        file_read,
+    );
     r.register(
         meta(
             "file.write",
-            "写入文件",
+            ("写入文件", "Write File"),
             json!({"type": "object", "properties": {"path": {"type": "string"}, "text": {"type": "string"}}, "required": ["path", "text"]}),
             true,
         ),
@@ -139,13 +206,14 @@ pub(crate) fn register(r: &mut Registry) {
 
 fn meta(
     id: &'static str,
-    title: &'static str,
+    (title, title_en): (&'static str, &'static str),
     params_schema: Value,
     mutating: bool,
 ) -> CommandMeta {
     CommandMeta {
         id,
         title,
+        title_en,
         params_schema,
         mutating,
     }
@@ -369,9 +437,10 @@ fn file_base64(ws: &mut Workspace, p: Value) -> CommandResult {
     let abs = ws.resolve(&path)?;
     let size = fs::metadata(&abs)?.len();
     if size > 50 * 1024 * 1024 {
-        return Err(CommandError::Failed(format!(
-            "文件过大（{} MB）",
-            size / 1024 / 1024
+        return Err(CommandError::Failed(tr!(
+            "文件过大（{mb} MB）",
+            "File too large ({mb} MB)",
+            mb = size / 1024 / 1024
         )));
     }
     let mime = match abs
@@ -398,10 +467,25 @@ struct IdParam {
     id: String,
 }
 
+#[derive(Deserialize)]
+struct LangParam {
+    lang: ym_model::Lang,
+}
+
+/// 设置后端消息（检查结果、错误提示等）使用的语言。
+fn app_set_lang(_: &mut Workspace, p: Value) -> CommandResult {
+    let LangParam { lang } = params(p)?;
+    ym_model::set_lang(lang);
+    Ok(json!({ "lang": lang }))
+}
+
 fn bib_fetch(_: &mut Workspace, p: Value) -> CommandResult {
     let IdParam { id } = params(p)?;
     let ident = ym_bib::import::detect(&id).ok_or_else(|| {
-        CommandError::InvalidParams(format!("无法识别为 DOI 或 arXiv 编号：{id}"))
+        CommandError::InvalidParams(tr!(
+            "无法识别为 DOI 或 arXiv 编号：{id}",
+            "Not a DOI or arXiv ID: {id}"
+        ))
     })?;
     let entry = ym_bib::import::fetch(&ident).map_err(|e| CommandError::Failed(e.to_string()))?;
     Ok(json!({
@@ -420,11 +504,9 @@ struct AddParam {
 fn bib_add(ws: &mut Workspace, p: Value) -> CommandResult {
     let AddParam { bibtex, file } = params(p)?;
     let parsed = ym_bib::parse(Path::new("new.bib"), &bibtex);
-    let mut entry = parsed
-        .entries
-        .into_iter()
-        .next()
-        .ok_or_else(|| CommandError::InvalidParams("没有可识别的 BibTeX 条目".into()))?;
+    let mut entry = parsed.entries.into_iter().next().ok_or_else(|| {
+        CommandError::InvalidParams(tr!("没有可识别的 BibTeX 条目", "No BibTeX entry found"))
+    })?;
 
     let index = ws.index()?;
     let (existing, _) = ym_check::load_bib(index);
@@ -554,7 +636,12 @@ fn asset_import(ws: &mut Workspace, p: Value) -> CommandResult {
                 .map_err(|e| CommandError::InvalidParams(e.to_string()))?,
             name.unwrap_or_else(|| "pasted.png".into()),
         ),
-        _ => return Err(CommandError::InvalidParams("需要 source 或 base64".into())),
+        _ => {
+            return Err(CommandError::InvalidParams(tr!(
+                "需要 source 或 base64",
+                "source or base64 is required"
+            )))
+        }
     };
     let fname = Path::new(&file_name);
     let ext = fname
@@ -562,8 +649,9 @@ fn asset_import(ws: &mut Workspace, p: Value) -> CommandResult {
         .map(|e| e.to_string_lossy().to_ascii_lowercase())
         .unwrap_or_default();
     if !EXTS.contains(&ext.as_str()) {
-        return Err(CommandError::InvalidParams(format!(
-            "LaTeX 不能直接插入 .{ext} 文件，支持 PNG、JPG、PDF、EPS"
+        return Err(CommandError::InvalidParams(tr!(
+            "LaTeX 不能直接插入 .{ext} 文件，支持 PNG、JPG、PDF、EPS",
+            "LaTeX cannot include .{ext} files directly; use PNG, JPG, PDF or EPS"
         )));
     }
     let stem = slug(
@@ -666,9 +754,9 @@ fn export_docx(ws: &mut Workspace, p: Value) -> CommandResult {
 
 fn compile_pdf(ws: &mut Workspace, _: Value) -> CommandResult {
     use base64::Engine as _;
-    let rel = ws
-        .pdf_path()
-        .ok_or_else(|| CommandError::Failed("尚未编译出 PDF".into()))?;
+    let rel = ws.pdf_path().ok_or_else(|| {
+        CommandError::Failed(tr!("尚未编译出 PDF", "No PDF has been compiled yet"))
+    })?;
     let bytes = fs::read(ws.root()?.join(&rel))?;
     Ok(json!({ "path": rel, "base64": base64::engine::general_purpose::STANDARD.encode(bytes) }))
 }

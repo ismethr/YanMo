@@ -2,16 +2,19 @@
 
 import { app } from './store.svelte';
 import { execute } from './backend';
+import { tr } from './i18n.svelte';
 import { cancelAi, getAiSettings, runAi, type AiContext, type AiSettingsInfo, type AiTask, type RewriteAction } from './ai';
 
-export const REWRITE_LABELS: Record<RewriteAction, string> = {
-  polish: '润色',
-  academic: '学术化',
-  translate_to_english: '译为英文',
-  translate_to_chinese: '译为中文',
-  shorten: '缩写',
-  expand: '扩写',
-};
+export function rewriteLabels(): Record<RewriteAction, string> {
+  return {
+    polish: tr('润色', 'Polish'),
+    academic: tr('学术化', 'Academic'),
+    translate_to_english: tr('译为英文', 'To English'),
+    translate_to_chinese: tr('译为中文', 'To Chinese'),
+    shorten: tr('缩写', 'Shorten'),
+    expand: tr('扩写', 'Expand'),
+  };
+}
 
 /** 单次改写的选区上限（字符），过长时提示分段 */
 const MAX_SELECTION = 12_000;
@@ -54,7 +57,7 @@ class AiPanelState {
   get modelName(): string {
     const s = this.info?.settings;
     if (!s) return '';
-    return s.provider === 'anthropic' ? s.anthropic_model : s.openai_model || '未选择模型';
+    return s.provider === 'anthropic' ? s.anthropic_model : s.openai_model || tr('未选择模型', 'No model selected');
   }
 
   async loadSettings() {
@@ -87,10 +90,10 @@ class AiPanelState {
   get contextChips(): string[] {
     const chips: string[] = [];
     const sel = app.selection;
-    if (sel?.text.trim()) chips.push(`选区 ${sel.text.length} 字符`);
+    if (sel?.text.trim()) chips.push(tr(`选区 ${sel.text.length} 字符`, `Selection: ${sel.text.length} chars`));
     const cur = app.outlineRows.find((r) => r.id === app.currentSectionId);
-    if (cur) chips.push(`当前章节：${cur.number ? `${cur.number} ` : ''}${cur.title}`);
-    if (app.outlineRows.length) chips.push('大纲');
+    if (cur) chips.push(`${tr('当前章节：', 'Section: ')}${cur.number ? `${cur.number} ` : ''}${cur.title}`);
+    if (app.outlineRows.length) chips.push(tr('大纲', 'Outline'));
     return chips;
   }
 
@@ -117,7 +120,7 @@ class AiPanelState {
   async explainError() {
     const errors = app.lastCompile?.diagnostics.filter((d) => d.severity === 'error') ?? [];
     if (!errors.length) {
-      app.flash('最近一次编译没有错误');
+      app.flash(tr('最近一次编译没有错误', 'The last build had no errors'));
       return;
     }
     const diagnostics = errors
@@ -140,7 +143,7 @@ class AiPanelState {
           .join('\n');
       }
     }
-    this.messages.push({ id: nextId++, kind: 'user', text: '解释最近一次编译的错误' });
+    this.messages.push({ id: nextId++, kind: 'user', text: tr('解释最近一次编译的错误', 'Explain the errors from the last build') });
     await this.#stream({ kind: 'explain_error', diagnostics, source });
   }
 
@@ -169,18 +172,23 @@ class AiPanelState {
     const sel = app.selection;
     if (this.running) return;
     if (!sel || !sel.text.trim()) {
-      app.flash('先在编辑器中选中要处理的文字');
+      app.flash(tr('先在编辑器中选中要处理的文字', 'Select some text in the editor first'));
       return;
     }
     if (sel.text.length > MAX_SELECTION) {
-      app.flash(`选区过长（${sel.text.length} 字符），请分段处理（上限 ${MAX_SELECTION}）`);
+      app.flash(
+        tr(
+          `选区过长（${sel.text.length} 字符），请分段处理（上限 ${MAX_SELECTION}）`,
+          `Selection too long (${sel.text.length} chars). Work in smaller parts (limit ${MAX_SELECTION})`,
+        ),
+      );
       return;
     }
     app.aiOpen = true;
     this.messages.push({
       id: nextId++,
       kind: 'proposal',
-      label: REWRITE_LABELS[action],
+      label: rewriteLabels()[action],
       path: sel.path,
       from: sel.from,
       to: sel.to,
@@ -202,7 +210,7 @@ class AiPanelState {
       const trail = p.original.match(/\s*$/)?.[0] ?? '';
       const body = (r.rewrite ?? r.outcome.text).trim();
       p.rewrite = body ? lead + body + trail : null;
-      if (!body) throw new Error('模型没有返回改写内容');
+      if (!body) throw new Error(tr('模型没有返回改写内容', 'The model returned no rewrite'));
       p.model = r.outcome.model;
       p.status = 'ready';
     } catch (e) {

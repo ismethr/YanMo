@@ -1,16 +1,17 @@
 <script lang="ts">
   import { app, type Activity } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
+  import { tr } from '../lib/i18n.svelte';
 
-  const items: { id: Activity; icon: string; label: string }[] = [
-    { id: 'files', icon: 'files', label: '文件' },
-    { id: 'outline', icon: 'outline', label: '大纲' },
-    { id: 'assets', icon: 'assets', label: '图表资产' },
-    { id: 'bib', icon: 'bib', label: '文献' },
-  ];
+  const items: { id: Activity; icon: string; label: string }[] = $derived([
+    { id: 'files', icon: 'files', label: tr('文件', 'Files') },
+    { id: 'outline', icon: 'outline', label: tr('大纲', 'Outline') },
+    { id: 'assets', icon: 'assets', label: tr('图表资产', 'Figures & Tables') },
+    { id: 'bib', icon: 'bib', label: tr('文献', 'Bibliography') },
+  ]);
 </script>
 
-<nav aria-label="活动栏">
+<nav aria-label={tr('活动栏', 'Activity bar')}>
   {#each items as it (it.id)}
     <button class:on={app.activity === it.id} aria-label={it.label} title={it.label} onclick={() => (app.activity = it.id)}>
       <Icon name={it.icon} size={22} />

@@ -15,6 +15,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Instant, SystemTime};
+use ym_model::tr;
 use ym_model::Engine;
 
 pub use export::{ExportOutput, ExportRequest, EXPORT_DIR};
@@ -129,13 +130,19 @@ pub struct CompileOutput {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CompileError {
-    #[error("没有可用的编译引擎：请运行 scripts/fetch-tectonic.sh 安装 Tectonic，或安装 TeX Live / MacTeX")]
+    #[error("{}", tr!(
+        "没有可用的编译引擎：请运行 scripts/fetch-tectonic.sh 安装 Tectonic，或安装 TeX Live / MacTeX",
+        "No TeX engine available: run scripts/fetch-tectonic.sh to install Tectonic, or install TeX Live / MacTeX"
+    ))]
     NoEngine,
-    #[error("所选引擎不可用：{0:?}")]
+    #[error("{}", tr!("所选引擎不可用：{e:?}", "The selected engine is not available: {e:?}", e = .0))]
     EngineUnavailable(Engine),
-    #[error("没有找到 Pandoc：请从 https://pandoc.org/installing.html 安装后重试")]
+    #[error("{}", tr!(
+        "没有找到 Pandoc：请从 https://pandoc.org/installing.html 安装后重试",
+        "Pandoc not found: install it from https://pandoc.org/installing.html and try again"
+    ))]
     NoPandoc,
-    #[error("Pandoc 转换失败：{0}")]
+    #[error("{}", tr!("Pandoc 转换失败：{e}", "Pandoc conversion failed: {e}", e = .0))]
     Pandoc(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -324,7 +331,7 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
             file: None,
             line: None,
             message: if fatal.is_empty() {
-                "编译失败，详见日志".to_owned()
+                tr!("编译失败，详见日志", "Compilation failed, see the log")
             } else {
                 fatal.join(" ")
             },

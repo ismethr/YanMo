@@ -3,22 +3,23 @@
   import { ai } from '../lib/ai-store.svelte';
   import { runAi, saveAiSettings, setAiKey, type AiSettings } from '../lib/ai';
   import { app } from '../lib/store.svelte';
+  import { tr } from '../lib/i18n.svelte';
 
-  const ANTHROPIC_MODELS = [
-    { id: 'claude-opus-5-5', name: 'Claude Opus 5.5（推荐）' },
-    { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5（更快、更便宜）' },
-    { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5（最便宜）' },
-  ];
-  const EFFORTS = [
-    { id: 'low', name: '低：最快' },
-    { id: 'medium', name: '中：日常写作（默认）' },
-    { id: 'high', name: '高：复杂改写与审阅' },
-  ];
-  const PRESETS = [
-    { name: 'Ollama（本地）', url: 'http://localhost:11434/v1' },
+  const ANTHROPIC_MODELS = $derived([
+    { id: 'claude-opus-5-5', name: tr('Claude Opus 5.5（推荐）', 'Claude Opus 5.5 (recommended)') },
+    { id: 'claude-sonnet-5-5', name: tr('Claude Sonnet 5.5（更快、更便宜）', 'Claude Sonnet 5.5 (faster, cheaper)') },
+    { id: 'claude-haiku-5-5', name: tr('Claude Haiku 5.5（最便宜）', 'Claude Haiku 5.5 (cheapest)') },
+  ]);
+  const EFFORTS = $derived([
+    { id: 'low', name: tr('低：最快', 'Low: fastest') },
+    { id: 'medium', name: tr('中：日常写作（默认）', 'Medium: everyday writing (default)') },
+    { id: 'high', name: tr('高：复杂改写与审阅', 'High: complex rewrites and reviews') },
+  ]);
+  const PRESETS = $derived([
+    { name: tr('Ollama（本地）', 'Ollama (local)'), url: 'http://localhost:11434/v1' },
     { name: 'DeepSeek', url: 'https://api.deepseek.com/v1' },
     { name: 'OpenAI', url: 'https://api.openai.com/v1' },
-  ];
+  ]);
 
   let s = $state<AiSettings>({ ...ai.info!.settings });
   let key = $state('');
@@ -33,9 +34,9 @@
       if (key.trim()) await setAiKey(s.provider, key);
       key = '';
       await ai.loadSettings();
-      app.flash('AI 设置已保存');
+      app.flash(tr('AI 设置已保存', 'AI settings saved'));
     } catch (e) {
-      app.flash(`保存失败：${e}`);
+      app.flash(tr(`保存失败：${e}`, `Save failed: ${e}`));
     } finally {
       saving = false;
     }
@@ -48,12 +49,12 @@
 
   async function test() {
     await save();
-    testResult = '连接中…';
+    testResult = tr('连接中…', 'Connecting…');
     let reply = '';
     try {
       const r = await runAi({ kind: 'chat', history: [{ role: 'user', content: 'Reply with exactly: OK' }] }, {}, (t) => (reply += t), () => {})
         .done;
-      testResult = `✓ 连接成功（${r.outcome.model}）：${reply.trim().slice(0, 40)}`;
+      testResult = tr(`✓ 连接成功（${r.outcome.model}）：`, `✓ Connected (${r.outcome.model}): `) + reply.trim().slice(0, 40);
     } catch (e) {
       testResult = `✕ ${String(e).replace(/^Error:\s*/, '')}`;
     }
@@ -61,52 +62,63 @@
 </script>
 
 <div class="settings">
-  <h3>AI 设置</h3>
-  <p class="muted small">研墨不提供模型服务，也不经手你的 Key：请求从本机直接发往你选择的服务商。</p>
+  <h3>{tr('AI 设置', 'AI Settings')}</h3>
+  <p class="muted small">
+    {tr(
+      '研墨不提供模型服务，也不经手你的 Key：请求从本机直接发往你选择的服务商。',
+      'YanMo does not provide a model service and never handles your key: requests go straight from this computer to the provider you choose.',
+    )}
+  </p>
 
   <fieldset>
-    <legend>服务商</legend>
+    <legend>{tr('服务商', 'Provider')}</legend>
     <label><input type="radio" bind:group={s.provider} value="anthropic" /> Anthropic（Claude）</label>
-    <label><input type="radio" bind:group={s.provider} value="openai_compatible" /> OpenAI 兼容接口（DeepSeek、通义、Ollama…）</label>
+    <label><input type="radio" bind:group={s.provider} value="openai_compatible" />
+      {tr('OpenAI 兼容接口（DeepSeek、通义、Ollama…）', 'OpenAI-compatible API (DeepSeek, Qwen, Ollama…)')}</label
+    >
   </fieldset>
 
   {#if s.provider === 'anthropic'}
     <label class="field">
-      <span>模型</span>
+      <span>{tr('模型', 'Model')}</span>
       <select bind:value={s.anthropic_model}>
         {#each ANTHROPIC_MODELS as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
       </select>
     </label>
     <label class="field">
-      <span>思考深度</span>
+      <span>{tr('思考深度', 'Thinking effort')}</span>
       <select bind:value={s.effort}>
         {#each EFFORTS as e (e.id)}<option value={e.id}>{e.name}</option>{/each}
       </select>
     </label>
   {:else}
     <label class="field">
-      <span>接口地址</span>
+      <span>{tr('接口地址', 'API URL')}</span>
       <input bind:value={s.openai_base_url} placeholder="https://api.deepseek.com/v1" />
     </label>
     <div class="presets">
       {#each PRESETS as p (p.url)}<button class="chip" onclick={() => (s.openai_base_url = p.url)}>{p.name}</button>{/each}
     </div>
     <label class="field">
-      <span>模型名</span>
-      <input bind:value={s.openai_model} placeholder="如 deepseek-chat、qwen2.5:14b" />
+      <span>{tr('模型名', 'Model name')}</span>
+      <input bind:value={s.openai_model} placeholder={tr('如 deepseek-chat、qwen2.5:14b', 'e.g. deepseek-chat, qwen2.5:14b')} />
     </label>
   {/if}
 
   <label class="field">
-    <span>API Key {#if hasKey}<span class="c-ok">· 已存入钥匙串</span>{/if}</span>
-    <input type="password" bind:value={key} placeholder={hasKey ? '已设置；输入新 Key 可替换' : s.provider === 'anthropic' ? 'sk-ant-…' : '本地 Ollama 可留空'} autocomplete="off" />
+    <span>API Key {#if hasKey}<span class="c-ok">{tr('· 已存入钥匙串', '· stored in the keychain')}</span>{/if}</span>
+    <input type="password" bind:value={key} placeholder={hasKey
+        ? tr('已设置；输入新 Key 可替换', 'Set. Enter a new key to replace it')
+        : s.provider === 'anthropic'
+          ? 'sk-ant-…'
+          : tr('本地 Ollama 可留空', 'Leave empty for a local Ollama')} autocomplete="off" />
   </label>
-  {#if hasKey}<button class="link" onclick={removeKey}>从钥匙串删除 Key</button>{/if}
+  {#if hasKey}<button class="link" onclick={removeKey}>{tr('从钥匙串删除 Key', 'Remove key from keychain')}</button>{/if}
 
   <div class="actions">
-    <button class="btn btn-pri" onclick={save} disabled={saving}>保存</button>
-    <button class="btn" onclick={test} disabled={saving}>测试连接</button>
-    {#if ai.configured}<button class="btn" onclick={() => (ai.showSettings = false)}>返回对话</button>{/if}
+    <button class="btn btn-pri" onclick={save} disabled={saving}>{tr('保存', 'Save')}</button>
+    <button class="btn" onclick={test} disabled={saving}>{tr('测试连接', 'Test Connection')}</button>
+    {#if ai.configured}<button class="btn" onclick={() => (ai.showSettings = false)}>{tr('返回对话', 'Back to Chat')}</button>{/if}
   </div>
   {#if testResult}<p class="small">{testResult}</p>{/if}
 </div>

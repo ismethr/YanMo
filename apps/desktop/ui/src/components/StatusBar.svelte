@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
   import { inTauri } from '../lib/backend';
+  import { i18n, tr } from '../lib/i18n.svelte';
 
   const demo = !inTauri && new URLSearchParams(location.search).has('demo');
 
@@ -10,34 +11,43 @@
         ? 'Tectonic'
         : app.toolchain.latexmk
           ? 'latexmk · XeLaTeX'
-          : '未找到编译引擎'
+          : tr('未找到编译引擎', 'No TeX engine found')
       : 'Tectonic · XeLaTeX',
   );
 </script>
 
 <footer>
   {#if app.project}
-    <button onclick={() => app.showPanel('problems')} aria-label="打开问题面板">
+    <button onclick={() => app.showPanel('problems')} aria-label={tr('打开问题面板', 'Open problems panel')}>
       <span>✕ {app.errors}</span><span>⚠ {app.warnings}</span>
     </button>
-    <button onclick={() => app.showPanel('log')} aria-label="打开编译日志">
+    <button onclick={() => app.showPanel('log')} aria-label={tr('打开编译日志', 'Open build log')}>
       {#if app.compiling}
-        编译中…
+        {tr('编译中…', 'Compiling…')}
       {:else if app.lastCompile}
-        {app.lastCompile.success ? '✓ 已编译' : app.lastCompile.pdf ? '⚠ 编译有错误' : '✕ 编译失败'} · {(app.lastCompile.duration_ms / 1000).toFixed(1)}s
+        {app.lastCompile.success
+          ? tr('✓ 已编译', '✓ Compiled')
+          : app.lastCompile.pdf
+            ? tr('⚠ 编译有错误', '⚠ Compiled with errors')
+            : tr('✕ 编译失败', '✕ Compilation failed')} · {(app.lastCompile.duration_ms / 1000).toFixed(1)}s
       {:else}
         {engineName}
       {/if}
     </button>
   {/if}
-  {#if !inTauri && !demo}<span class="preview">浏览器预览模式 · 示例数据</span>{/if}
+  {#if !inTauri && !demo}<span class="preview">{tr('浏览器预览模式 · 示例数据', 'Browser preview · sample data')}</span>{/if}
   <span class="grow"></span>
   {#if app.active && !app.active.startsWith('yanmo://')}
-    <span>行 {app.cursor.line}，列 {app.cursor.col}</span>
-    <span>{app.isDirty(app.active) ? '未保存' : '已保存'}</span>
+    <span>{tr(`行 ${app.cursor.line}，列 ${app.cursor.col}`, `Ln ${app.cursor.line}, Col ${app.cursor.col}`)}</span>
+    <span>{app.isDirty(app.active) ? tr('未保存', 'Unsaved') : tr('已保存', 'Saved')}</span>
   {/if}
   {#if app.index}<span>{app.index.total_words.toLocaleString()} {app.wordUnit}</span>{/if}
   <span>UTF-8</span>
+  <button
+    class="lang"
+    title={tr('切换界面语言', 'Switch interface language')}
+    onclick={() => void app.switchLang(i18n.lang === 'zh' ? 'en' : 'zh')}>{i18n.lang === 'zh' ? '中文' : 'English'}</button
+  >
 </footer>
 
 <style>
