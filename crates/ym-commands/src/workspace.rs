@@ -160,6 +160,7 @@ impl Workspace {
         &mut self,
         engine: Option<Engine>,
         timeout: Option<std::time::Duration>,
+        draft: bool,
     ) -> Result<CompileJob, CommandError> {
         let root = self.root()?.to_path_buf();
         let main = self
@@ -172,6 +173,7 @@ impl Workspace {
                 main,
                 engine: engine.or(self.meta.engine),
                 shell_escape: self.meta.shell_escape,
+                draft,
                 timeout,
                 cancel: {
                     self.compile_cancel = ym_compile::CancelHandle::default();

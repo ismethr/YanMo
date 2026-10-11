@@ -154,6 +154,13 @@
         </label>
         <label class="row">
           <span>
+            {tr('草稿模式', 'Draft mode')}
+            <small class="muted">{tr('不载入图片（显示为同尺寸的方框），编译更快、PDF 更小；定稿前请关闭', 'Skips images (drawn as boxes of the same size) for faster builds and a smaller PDF; turn it off before the final build')}</small>
+          </span>
+          <input type="checkbox" checked={prefs.draft} onchange={() => app.toggleDraft()} />
+        </label>
+        <label class="row">
+          <span>
             {tr('编译超时', 'Timeout')}
             <small class="muted">{tr('超过这个时间仍未结束就停止编译；首次用 Tectonic 编译需要下载宏包，可能要几分钟', 'Stops a build that runs longer; the first Tectonic build downloads packages and may take a few minutes')}</small>
           </span>

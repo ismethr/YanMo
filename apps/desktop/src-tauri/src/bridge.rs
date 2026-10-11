@@ -83,7 +83,12 @@ async fn compile(state: &State<'_, AppState>, params: Value) -> Result<Value, St
         .map(std::time::Duration::from_secs);
     let job = {
         let mut ws = state.workspace.lock().map_err(|e| e.to_string())?;
-        ws.compile_job(engine, timeout).map_err(|e| e.to_string())?
+        let draft = params
+            .get("draft")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        ws.compile_job(engine, timeout, draft)
+            .map_err(|e| e.to_string())?
     };
     let output = tauri::async_runtime::spawn_blocking(move || job.run())
         .await

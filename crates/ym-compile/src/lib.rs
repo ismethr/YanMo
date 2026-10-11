@@ -108,6 +108,8 @@ pub struct CompileRequest {
     pub engine: Option<Engine>,
     /// 允许 TeX 执行外部命令（minted 等宏包需要）
     pub shell_escape: bool,
+    /// 草稿模式：不载入图片（graphicx 的 draft 选项，图片位置画成同尺寸的框），编译更快、PDF 更小
+    pub draft: bool,
     /// 超过这个时间仍未结束就停止编译
     pub timeout: Option<Duration>,
     /// 用于从其他线程停止编译
@@ -340,6 +342,10 @@ fn resolve_source(root: &Path, main_dir: &Path, name: &str) -> Option<String> {
         .map(|c| c.to_string_lossy().replace('\\', "/"))
 }
 
+/// 草稿模式在文档之前传入的选项
+const DRAFT_OPTIONS: &str =
+    r"\PassOptionsToPackage{draft}{graphicx}\PassOptionsToPackage{draft}{graphics}";
+
 /// 删除编译产物目录（`.yanmo/build/`）。
 pub fn clean(root: &Path) -> std::io::Result<()> {
     let dir = root.join(BUILD_DIR);
@@ -372,7 +378,7 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
 
     // 记录上次编译用的引擎
     let engine_mark = out_dir.join(".engine");
-    let engine_name = format!("{engine:?}");
+    let engine_name = format!("{engine:?}{}", if req.draft { "+draft" } else { "" });
     let engine_changed = std::fs::read_to_string(&engine_mark)
         .map(|e| e.trim() != engine_name)
         .unwrap_or(true);
@@ -380,11 +386,27 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
 
     let started = Instant::now();
     let before = SystemTime::now();
+    // Tectonic 没有在源码前插入代码的参数：草稿模式用一个包装文件先传入 draft 选项，再 \input 主文件。
+    // 包装文件与主文件同名，生成的 PDF 名称不变；主文件用相对包装文件的路径引用，避免找回包装文件自身。
+    let tectonic_input = if req.draft && engine == Engine::Tectonic {
+        let dir = out_dir.join("draft");
+        std::fs::create_dir_all(&dir)?;
+        let depth = Path::new(BUILD_DIR).components().count() + 1;
+        let main_rel = "../".repeat(depth) + &req.main.to_string_lossy().replace('\\', "/");
+        let wrapper = dir.join(&file);
+        std::fs::write(
+            &wrapper,
+            format!("{DRAFT_OPTIONS}\n\\input{{\"{main_rel}\"}}\n"),
+        )?;
+        wrapper.into_os_string()
+    } else {
+        file.clone()
+    };
     let cmd = match engine {
         Engine::Tectonic => {
             let mut c = Command::new(tc.tectonic.as_ref().expect("checked"));
             c.args(["-X", "compile"])
-                .arg(&file)
+                .arg(&tectonic_input)
                 .arg("--outdir")
                 .arg(&out_dir)
                 // 保留 .aux：导出 Word 时用它把交叉引用替换为真实编号
@@ -398,6 +420,10 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
                 .current_dir(&cwd);
             if req.shell_escape {
                 c.args(["-Z", "shell-escape"]);
+            }
+            if req.draft {
+                // 包装文件不在主文件目录，让 Tectonic 也在主文件目录中查找文件
+                c.arg("-Z").arg(format!("search-path={}", cwd.display()));
             }
             c
         }
@@ -426,6 +452,9 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
             .env("PATH", std::env::join_paths(path).unwrap_or_default());
             if req.shell_escape {
                 c.arg("-shell-escape");
+            }
+            if req.draft {
+                c.arg(format!("-usepretex={DRAFT_OPTIONS}"));
             }
             // 换了引擎后强制重新编译，否则 latexmk 会把上一个引擎生成的 PDF 当作最新
             if engine_changed {

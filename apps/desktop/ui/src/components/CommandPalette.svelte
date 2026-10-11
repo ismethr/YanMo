@@ -23,6 +23,11 @@
     { id: 'project.export_zip', title: tr('导出为 Overleaf 项目（zip）', 'Export as Overleaf Project (zip)'), run: () => void app.exportZip() },
     { id: 'file.save', title: tr('保存当前文件', 'Save File'), key: '⌘S', run: () => app.saveActive() },
     { id: 'compile.run', title: tr('编译论文', 'Compile Paper'), key: '⌘B', run: () => app.compile() },
+    {
+      id: 'compile.draft',
+      title: tr('切换：草稿模式（不载入图片，编译更快）', 'Toggle: Draft Mode (skip images, faster builds)'),
+      run: () => app.toggleDraft(),
+    },
     { id: 'compile.cancel', title: tr('停止编译', 'Stop Compiling'), run: () => void app.cancelCompile() },
     { id: 'compile.clean', title: tr('清理编译缓存', 'Clean Build Files'), run: () => void app.cleanBuild() },
     { id: 'compile.log', title: tr('打开完整编译日志', 'Open Full Build Log'), run: () => void app.openLog() },

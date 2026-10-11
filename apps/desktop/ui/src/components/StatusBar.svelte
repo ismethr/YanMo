@@ -3,6 +3,7 @@
   import { inTauri } from '../lib/backend';
   import { i18n, tr } from '../lib/i18n.svelte';
   import { updater } from '../lib/updater.svelte';
+  import { prefs } from '../lib/prefs.svelte';
 
   const demo = !inTauri && new URLSearchParams(location.search).has('demo');
 
@@ -36,6 +37,11 @@
         {engineName}
       {/if}
     </button>
+  {/if}
+  {#if app.project && prefs.draft}
+    <button class="draft" title={tr('草稿模式：图片显示为方框。点击关闭', 'Draft mode: images appear as boxes. Click to turn off')} onclick={() => app.toggleDraft()}
+      >{tr('草稿模式', 'Draft')}</button
+    >
   {/if}
   {#if !inTauri && !demo}<span class="preview">{tr('浏览器预览模式 · 示例数据', 'Browser preview · sample data')}</span>{/if}
   <span class="grow"></span>
@@ -82,6 +88,10 @@
   }
   .grow {
     flex: 1;
+  }
+  .draft {
+    color: var(--warn);
+    font-weight: 500;
   }
   .preview,
   .update {

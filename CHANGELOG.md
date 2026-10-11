@@ -17,6 +17,7 @@
 - 通用：界面语言、启动时检查更新、手动检查更新；关于页可打开官网、GitHub、反馈与更新日志
 
 ### 编译
+- 草稿模式：不载入图片（显示为同尺寸方框），实测论文编译从 3.4 秒降到 2.0 秒、PDF 从 13.7 MB 降到 0.15 MB；在设置、命令面板或状态栏切换，Tectonic 与 latexmk 均支持
 - 编译引擎可按项目选择（自动 / Tectonic / XeLaTeX / pdfLaTeX / LuaLaTeX），保存在 `.yanmo/project.toml`；此前项目设置中的引擎没有生效
 - 可按项目开启 shell-escape（minted 等宏包需要）
 - 编译可随时停止，并有超时（默认 5 分钟，可在设置中修改）；停止时连同 xelatex、biber 等子进程一起结束

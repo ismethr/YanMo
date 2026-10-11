@@ -12,6 +12,8 @@ export interface Prefs {
   autosave: boolean;
   /** 保存后自动编译 */
   autoCompile: boolean;
+  /** 草稿模式：不载入图片，编译更快、PDF 更小 */
+  draft: boolean;
   /** 编译超时（秒），0 表示不限 */
   compileTimeout: number;
   /** 启动时检查更新 */
@@ -23,6 +25,7 @@ export const DEFAULT_PREFS: Prefs = {
   wrap: true,
   autosave: true,
   autoCompile: true,
+  draft: false,
   compileTimeout: 300,
   checkUpdates: true,
 };

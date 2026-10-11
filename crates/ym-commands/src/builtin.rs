@@ -206,7 +206,7 @@ pub(crate) fn register(r: &mut Registry) {
         meta(
             "compile.run",
             ("编译论文", "Compile Paper"),
-            json!({"type": "object", "properties": {"engine": {"enum": ["tectonic", "xelatex", "pdflatex", "lualatex"]}, "timeout_secs": {"type": "integer"}}}),
+            json!({"type": "object", "properties": {"engine": {"enum": ["tectonic", "xelatex", "pdflatex", "lualatex"]}, "timeout_secs": {"type": "integer"}, "draft": {"type": "boolean", "description": "Draft mode: do not load images (faster, smaller PDF)"}}}),
             false,
         ),
         compile_run,
@@ -1138,18 +1138,26 @@ struct CompileParam {
     engine: Option<ym_model::Engine>,
     /// 超时（秒）
     timeout_secs: Option<u64>,
+    /// 草稿模式：不载入图片
+    #[serde(default)]
+    draft: bool,
 }
 
 fn compile_run(ws: &mut Workspace, p: Value) -> CommandResult {
     let CompileParam {
         engine,
         timeout_secs,
+        draft,
     } = if p.is_null() {
         CompileParam::default()
     } else {
         params(p)?
     };
-    let job = ws.compile_job(engine, timeout_secs.map(std::time::Duration::from_secs))?;
+    let job = ws.compile_job(
+        engine,
+        timeout_secs.map(std::time::Duration::from_secs),
+        draft,
+    )?;
     let out = job.run()?;
     ws.finish_compile(out.clone());
     to_value(&out)

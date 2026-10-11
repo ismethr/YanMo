@@ -528,7 +528,10 @@ class AppState {
       if (this.compileStartedAt) this.compileElapsed = Math.floor((Date.now() - this.compileStartedAt) / 1000);
     }, 1000);
     try {
-      const out = await execute<CompileOutput>('compile.run', prefs.compileTimeout > 0 ? { timeout_secs: prefs.compileTimeout } : {});
+      const out = await execute<CompileOutput>('compile.run', {
+        draft: prefs.draft,
+        ...(prefs.compileTimeout > 0 ? { timeout_secs: prefs.compileTimeout } : {}),
+      });
       this.lastCompile = out;
       if (out.pdf) await this.loadPdf();
       if (out.stopped) {
@@ -552,6 +555,18 @@ class AppState {
       this.#compileAgain = false;
       void this.compile();
     }
+  }
+
+  /** 切换草稿模式（不载入图片），并立即重新编译 */
+  toggleDraft() {
+    prefs.draft = !prefs.draft;
+    savePrefs();
+    this.flash(
+      prefs.draft
+        ? tr('已开启草稿模式：图片显示为方框，编译更快', 'Draft mode on: images appear as boxes and builds are faster')
+        : tr('已关闭草稿模式', 'Draft mode off'),
+    );
+    if (this.project) void this.compile();
   }
 
   /** 停止正在进行的编译 */
