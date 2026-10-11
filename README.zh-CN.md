@@ -13,7 +13,7 @@
 
 ![研墨工作区：论文大纲、LaTeX 编辑器与问题面板](site/assets/app.jpg)
 
-> 状态：预览版 v0.2。官网 [yanmo.ink](https://yanmo.ink)；路线图见 [docs/MVP.md](docs/MVP.md)，架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，更新见 [CHANGELOG](CHANGELOG.md)。
+> 状态：预览版 v0.3。官网 [yanmo.ink](https://yanmo.ink)；路线图见 [docs/MVP.md](docs/MVP.md)，架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，更新见 [CHANGELOG](CHANGELOG.md)。
 
 ## 安装
 

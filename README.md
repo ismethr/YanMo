@@ -13,7 +13,7 @@ An open-source, local-first desktop app for writing and compiling LaTeX papers, 
 
 ![The YanMo workspace: paper outline, LaTeX editor and problems panel](site/assets/app-en.jpg)
 
-> Status: preview v0.2. Website: [yanmo.ink](https://yanmo.ink/en/). Changes: [CHANGELOG](CHANGELOG.md). Design notes ([roadmap](docs/MVP.md), [architecture](docs/ARCHITECTURE.md)) are in Chinese for now.
+> Status: preview v0.3. Website: [yanmo.ink](https://yanmo.ink/en/). Changes: [CHANGELOG](CHANGELOG.md). Design notes ([roadmap](docs/MVP.md), [architecture](docs/ARCHITECTURE.md)) are in Chinese for now.
 
 ## Install
 
