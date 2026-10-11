@@ -294,6 +294,8 @@ pub fn parse_csl(item: &Value) -> Found {
 }
 
 /// 遇到限流（429）时按 1、2、4 秒退避重试
+// ureq::Error 本身较大，原样传递即可
+#[allow(clippy::result_large_err)]
 fn call(req: ureq::Request) -> Result<ureq::Response, ureq::Error> {
     let mut wait = 1;
     loop {
