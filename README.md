@@ -9,7 +9,7 @@
 - **可控的 AI**：自带 API Key（Claude / OpenAI 兼容 / Ollama），每次修改都以 diff 呈现、经确认后应用
 - **对 Agent 友好**：统一命令注册表，CLI 与 MCP Server 和 UI 共用同一套命令
 
-> 状态：首个预览版 v0.1。官网 [yanmo.ink](https://yanmo.ink)；路线图见 [docs/MVP.md](docs/MVP.md)，架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，更新见 [CHANGELOG](CHANGELOG.md)。
+> 状态：预览版 v0.2。官网 [yanmo.ink](https://yanmo.ink)；路线图见 [docs/MVP.md](docs/MVP.md)，架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，更新见 [CHANGELOG](CHANGELOG.md)。
 
 ## 安装
 
