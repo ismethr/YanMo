@@ -12,6 +12,7 @@
   let list: HTMLDivElement | undefined = $state();
   const actions = $derived(Object.entries(rewriteLabels()) as [RewriteAction, string][]);
   let hasSelection = $derived(!!app.selection?.text.trim());
+  let hasCites = $derived(ai.citedKeys(app.selection?.text ?? '').length > 0);
   let compileErrors = $derived(app.lastCompile?.diagnostics.some((d) => d.severity === 'error') ?? false);
 
   onMount(() => {
@@ -143,6 +144,11 @@
         {#each actions as [id, label] (id)}
           <button class="qa-btn" disabled={!hasSelection || !!ai.running} title={hasSelection ? tr(`${label}选中的文字`, `${label}: the selected text`) : tr('先在编辑器中选中文字', 'Select text in the editor first')} onclick={() => ai.rewrite(id)}>{label}</button>
         {/each}
+        {#if hasCites}
+          <button class="qa-btn" disabled={!!ai.running} title={tr('判断选中文字里引用的文献是否支撑论述', 'Check whether the cited works support the selected text')} onclick={() => ai.checkCitations()}
+            >{tr('核查引用', 'Check Citations')}</button
+          >
+        {/if}
         {#if compileErrors}
           <button class="qa-btn" disabled={!!ai.running} onclick={() => ai.explainError()}>{tr('解释编译错误', 'Explain Build Errors')}</button>
         {/if}

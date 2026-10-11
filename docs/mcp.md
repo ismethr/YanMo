@@ -30,6 +30,7 @@ claude mcp add yanmo -- /Applications/YanMo.app/Contents/MacOS/ym mcp -C /path/t
 | `outline_extract` | 把章节拆成独立文件，原处换成 `\input`（编译结果不变） | 是 |
 | `bib_fetch` | 按 DOI / arXiv 查询 BibTeX（联网） | 否 |
 | `bib_verify` | 到 Crossref / doi.org / arXiv 核对文献是否存在、信息是否一致，并建议缺失的 DOI（联网） | 否 |
+| `bib_abstracts` | 获取被引文献的摘要（Semantic Scholar，备选 Crossref），用于判断引用是否支撑论述（联网） | 否 |
 | `bib_add_field` | 给条目补充缺少的字段（如 DOI），只插入一行 | 是 |
 | `bib_import` / `bib_add` | 把文献加入项目的 .bib 文件 | 是 |
 | `asset_import` | 把图片复制到项目图片目录 | 是 |

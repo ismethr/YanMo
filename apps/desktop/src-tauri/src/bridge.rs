@@ -40,8 +40,8 @@ pub async fn execute(
             .await
             .map_err(|e| e.to_string())?;
         }
-        // 联网核查文献：只在取条目时持锁
-        "bib.verify" => {
+        // 联网核查文献、获取摘要：只在取条目时持锁
+        "bib.verify" | "bib.abstracts" => {
             let keys: Vec<String> = params
                 .get("keys")
                 .and_then(|k| serde_json::from_value(k.clone()).ok())
@@ -50,9 +50,16 @@ pub async fn execute(
                 let mut ws = state.workspace.lock().map_err(|e| e.to_string())?;
                 ws.bib_entries(&keys).map_err(|e| e.to_string())?
             };
-            return tauri::async_runtime::spawn_blocking(move || ym_commands::verify_bib(&entries))
-                .await
-                .map_err(|e| e.to_string());
+            let abstracts = id == "bib.abstracts";
+            return tauri::async_runtime::spawn_blocking(move || {
+                if abstracts {
+                    ym_commands::fetch_abstracts(&entries)
+                } else {
+                    ym_commands::verify_bib(&entries)
+                }
+            })
+            .await
+            .map_err(|e| e.to_string());
         }
         _ => {}
     }

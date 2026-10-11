@@ -3,7 +3,7 @@
 import { app } from './store.svelte';
 import { execute } from './backend';
 import { tr } from './i18n.svelte';
-import { cancelAi, getAiSettings, runAi, type AiContext, type AiSettingsInfo, type AiTask, type RewriteAction } from './ai';
+import { cancelAi, getAiSettings, runAi, type AiContext, type AiSettingsInfo, type AiTask, type CitedWork, type RewriteAction } from './ai';
 
 export function rewriteLabels(): Record<RewriteAction, string> {
   return {
@@ -165,6 +165,49 @@ class AiPanelState {
       m.streaming = false;
       this.running = null;
     }
+  }
+
+  /** 选区（或光标所在段落）里引用的 key */
+  citedKeys(text: string): string[] {
+    const keys = new Set<string>();
+    for (const m of text.matchAll(/\\(?:no)?cite[a-zA-Z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}/g)) {
+      for (const k of m[1].split(',')) if (k.trim()) keys.add(k.trim());
+    }
+    return [...keys];
+  }
+
+  /** 核查选中文字中的引用：取被引文献的摘要，请 AI 逐条判断是否支撑论述 */
+  async checkCitations() {
+    if (this.running) return;
+    const sel = app.selection;
+    const passage = sel?.text.trim() ?? '';
+    const keys = this.citedKeys(passage);
+    if (!keys.length) {
+      app.flash(tr('先选中含有 \\cite 的句子或段落', 'Select a sentence or paragraph that contains \\cite first'));
+      return;
+    }
+    app.aiOpen = true;
+    this.messages.push({ id: nextId++, kind: 'user', text: tr(`核查引用：${keys.join('、')}`, `Check citations: ${keys.join(', ')}`) });
+    const notice = { id: nextId++, kind: 'notice' as const, text: tr('正在获取被引文献的摘要…', 'Fetching abstracts of the cited works…') };
+    this.messages.push(notice);
+    let works: CitedWork[];
+    try {
+      works = (await execute<{ works: CitedWork[] }>('bib.abstracts', { keys })).works;
+    } catch (e) {
+      this.messages.push({ id: nextId++, kind: 'notice', text: String(e).replace(/^Error:\s*/, '') });
+      return;
+    }
+    const missing = keys.filter((k) => !works.some((w) => w.key === k));
+    const noAbstract = works.filter((w) => !w.abstract).map((w) => w.key);
+    const n = this.messages.find((m) => m.id === notice.id);
+    if (n && n.kind === 'notice') {
+      const parts = [tr(`已取得 ${works.length - noAbstract.length}/${works.length} 篇的摘要`, `Abstracts found for ${works.length - noAbstract.length} of ${works.length}`)];
+      if (noAbstract.length) parts.push(tr(`${noAbstract.join('、')} 仅按标题判断`, `${noAbstract.join(', ')} judged by title only`));
+      if (missing.length) parts.push(tr(`文献库中没有 ${missing.join('、')}`, `not in the bibliography: ${missing.join(', ')}`));
+      n.text = parts.join(tr('；', '; '));
+    }
+    if (!works.length) return;
+    await this.#stream({ kind: 'check_citations', passage, works });
   }
 
   /** 改写当前选区：流式生成 → diff 卡片 → 用户接受后替换（可撤销）。 */

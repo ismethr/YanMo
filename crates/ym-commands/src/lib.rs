@@ -13,6 +13,12 @@ use ym_model::tr;
 
 pub use workspace::{CompileJob, ExportJob, Workspace};
 
+/// 联网获取被引文献的摘要（逐条进行，对 Semantic Scholar 友好）。
+pub fn fetch_abstracts(entries: &[ym_model::BibEntry]) -> serde_json::Value {
+    let works: Vec<_> = entries.iter().map(ym_bib::verify::fetch_abstract).collect();
+    serde_json::json!({ "works": works })
+}
+
 /// 联网核查文献（耗时较长，宿主可在不持有工作区锁时调用）。
 pub fn verify_bib(entries: &[ym_model::BibEntry]) -> serde_json::Value {
     serde_json::json!({ "results": ym_bib::verify::verify_all(entries) })

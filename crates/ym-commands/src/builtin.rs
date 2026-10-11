@@ -125,6 +125,17 @@ pub(crate) fn register(r: &mut Registry) {
     );
     r.register(
         meta(
+            "bib.abstracts",
+            ("获取文献摘要", "Fetch Reference Abstracts"),
+            json!({"type": "object", "properties": {
+                "keys": {"type": "array", "items": {"type": "string"}}
+            }, "required": ["keys"]}),
+            false,
+        ),
+        bib_abstracts,
+    );
+    r.register(
+        meta(
             "bib.verify",
             ("核查文献", "Verify References"),
             json!({"type": "object", "properties": {
@@ -306,6 +317,7 @@ fn describe(id: &str) -> &'static str {
         "outline.extract_undo" => "Undo outline.extract: restores the parent file and deletes the new file, only if neither has changed since.",
         "bib.verify" => "Look up each bibliography entry on Crossref (or arXiv) to confirm it exists and that its title, first author and year match the registered record; suggests DOIs for entries without one. Sends only bibliographic data (title, first author, year, DOI). Results: ok, mismatch, not_found, skipped, error.",
         "bib.add_field" => "Add a missing field (such as doi) to a bibliography entry. Inserts one line in the entry, keeping its indentation and alignment; fails if the field already exists.",
+        "bib.abstracts" => "Fetch the abstracts of the given references from Semantic Scholar (by DOI, arXiv ID or title), falling back to Crossref. Useful for checking whether a citation supports a claim. Entries without an available abstract are returned with abstract = null.",
         "file.read" => "Read a text file in the project.",
         "file.write" => "Overwrite a text file in the project.",
         _ => "",
@@ -677,6 +689,12 @@ fn bib_add_field(ws: &mut Workspace, p: Value) -> CommandResult {
     )?;
     ws.invalidate();
     Ok(json!({ "key": key, "file": entry.span.file }))
+}
+
+fn bib_abstracts(ws: &mut Workspace, p: Value) -> CommandResult {
+    let KeysParam { keys } = params(p)?;
+    let entries = ws.bib_entries(&keys)?;
+    Ok(crate::fetch_abstracts(&entries))
 }
 
 fn bib_verify(ws: &mut Workspace, p: Value) -> CommandResult {

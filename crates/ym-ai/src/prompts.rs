@@ -61,6 +61,30 @@ pub enum Task {
     Chat { history: Vec<Message> },
     /// 解释编译错误并给出修改建议
     ExplainError { diagnostics: String, source: String },
+    /// 判断被引文献是否支撑引用它的论述
+    CheckCitations {
+        passage: String,
+        works: Vec<CitedWork>,
+    },
+}
+
+/// 被引文献（标题、作者、年份、摘要），由界面从 bib.abstracts 取得
+#[derive(Debug, Clone, Deserialize)]
+pub struct CitedWork {
+    pub key: String,
+    pub title: String,
+    #[serde(default)]
+    pub authors: String,
+    pub year: Option<i32>,
+    #[serde(rename = "abstract")]
+    pub summary: Option<String>,
+}
+
+fn ui_language() -> &'static str {
+    match ym_model::lang() {
+        ym_model::Lang::Zh => "Chinese",
+        ym_model::Lang::En => "English",
+    }
 }
 
 fn context_block(ctx: &TaskContext) -> String {
@@ -115,6 +139,33 @@ pub fn build(task: &Task, ctx: &TaskContext) -> ChatRequest {
                 }
             }
             ChatRequest { system: BASE.to_owned(), messages }
+        }
+        Task::CheckCitations { passage, works } => {
+            let mut refs = String::new();
+            for w in works {
+                let year = w.year.map(|y| y.to_string()).unwrap_or_default();
+                refs.push_str(&format!(
+                    "<reference key=\"{}\">\n<title>{}</title>\n<authors>{}</authors>\n<year>{year}</year>\n<abstract>{}</abstract>\n</reference>\n",
+                    w.key,
+                    w.title,
+                    w.authors,
+                    w.summary.as_deref().unwrap_or("(not available)")
+                ));
+            }
+            ChatRequest {
+                system: BASE.to_owned(),
+                messages: vec![Message {
+                    role: Role::User,
+                    content: format!(
+                        "{context}Check whether each cited reference supports the statement that cites it in this passage.\n\n<passage>\n{passage}\n</passage>\n\n<references>\n{refs}</references>\n\n\
+Write plain text without Markdown. For each reference, give one line starting with its key, then a verdict (Supported, Partly supported, Not supported, or Cannot tell), then one or two sentences explaining why, pointing to the specific claim. \
+Judge only from the title and abstract given here; do not rely on memory of the paper and do not invent findings. \
+If the abstract is not available, say the verdict is based on the title only. \
+End with one short line suggesting what to change, if anything. Answer in {lang}.",
+                        lang = ui_language()
+                    ),
+                }],
+            }
         }
         Task::ExplainError { diagnostics, source } => {
             let answer_lang = match ym_model::lang() {
@@ -174,5 +225,24 @@ mod tests {
             .content
             .contains("<current_section title=\"Intro\">"));
         assert!(req.messages[2].content.ends_with("second"));
+    }
+
+    #[test]
+    fn citation_check_lists_references() {
+        let task = Task::CheckCitations {
+            passage: "Residual nets ease training~\\cite{he2016}.".into(),
+            works: vec![CitedWork {
+                key: "he2016".into(),
+                title: "Deep Residual Learning".into(),
+                authors: "He et al.".into(),
+                year: Some(2016),
+                summary: None,
+            }],
+        };
+        let req = build(&task, &TaskContext::default());
+        let c = &req.messages[0].content;
+        assert!(c.contains("<reference key=\"he2016\">"));
+        assert!(c.contains("<abstract>(not available)</abstract>"));
+        assert!(c.contains("based on the title only"));
     }
 }

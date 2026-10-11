@@ -698,3 +698,126 @@ mod tests {
         assert_eq!(verify(&e).status, Status::Mismatch);
     }
 }
+
+/// 被引文献的摘要，供 AI 判断引用是否支撑论述
+#[derive(Debug, Clone, Serialize)]
+pub struct CitedWork {
+    pub key: String,
+    pub title: String,
+    /// 简短作者：Vaswani et al.
+    pub authors: String,
+    pub year: Option<i32>,
+    pub r#abstract: Option<String>,
+    /// semantic_scholar / crossref
+    pub source: Option<&'static str>,
+}
+
+fn strip_tags(s: &str) -> String {
+    let mut out = String::new();
+    let mut in_tag = false;
+    for c in s.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            c if !in_tag => out.push(c),
+            _ => {}
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn s2(path: &str) -> Option<String> {
+    let url = format!("https://api.semanticscholar.org/graph/v1/paper/{path}");
+    let v: Value = call(agent().get(&url).query("fields", "title,abstract"))
+        .ok()?
+        .into_json()
+        .ok()?;
+    // search/match 返回 {data: [...]}
+    let item = if v["data"].is_array() {
+        &v["data"][0]
+    } else {
+        &v
+    };
+    item["abstract"]
+        .as_str()
+        .map(str::to_owned)
+        .filter(|a| !a.trim().is_empty())
+}
+
+/// 取条目的摘要：先查 Semantic Scholar（DOI、arXiv 编号或标题），再试 Crossref 登记的摘要
+pub fn fetch_abstract(e: &BibEntry) -> CitedWork {
+    let title = e.field("title").unwrap_or("").to_owned();
+    let authors = e
+        .field("author")
+        .map(|a| {
+            let n = a.split(" and ").count();
+            let first = a.split(" and ").next().unwrap_or("");
+            let family = first
+                .split_once(',')
+                .map(|(f, _)| f)
+                .unwrap_or_else(|| first.rsplit(' ').next().unwrap_or(first))
+                .trim()
+                .trim_matches(['{', '}'])
+                .to_owned();
+            if n > 1 {
+                format!("{family} et al.")
+            } else {
+                family
+            }
+        })
+        .unwrap_or_default();
+    let doi = e
+        .field("doi")
+        .map(|d| d.trim().trim_start_matches("https://doi.org/").to_owned());
+    let mut found = None;
+    if let Some(d) = &doi {
+        found = s2(&format!("DOI:{d}")).map(|a| (a, "semantic_scholar"));
+    }
+    if found.is_none() {
+        if let Some(id) = arxiv_id(e) {
+            found = s2(&format!("ARXIV:{id}")).map(|a| (a, "semantic_scholar"));
+        }
+    }
+    if found.is_none() && !title.trim().is_empty() {
+        let q = normalize(&title);
+        found =
+            s2(&format!("search/match?query={}", url_encode(&q))).map(|a| (a, "semantic_scholar"));
+    }
+    if found.is_none() {
+        if let Some(d) = &doi {
+            found = call(agent().get(&format!("https://api.crossref.org/works/{d}")))
+                .ok()
+                .and_then(|r| r.into_json::<Value>().ok())
+                .and_then(|v| v["message"]["abstract"].as_str().map(strip_tags))
+                // JATS 摘要常带 <jats:title>Abstract</jats:title>
+                .map(|a| {
+                    a.strip_prefix("Abstract")
+                        .map(str::trim_start)
+                        .unwrap_or(&a)
+                        .to_owned()
+                })
+                .filter(|a| !a.is_empty())
+                .map(|a| (a, "crossref"));
+        }
+    }
+    CitedWork {
+        key: e.key.clone(),
+        title,
+        authors,
+        year: entry_year(e),
+        source: found.as_ref().map(|(_, s)| *s),
+        r#abstract: found.map(|(a, _)| a),
+    }
+}
+
+fn url_encode(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            b' ' => "%20".into(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}

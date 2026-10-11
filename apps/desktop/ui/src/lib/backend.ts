@@ -127,6 +127,12 @@ function preview(id: string, params: Record<string, unknown>): unknown {
       return { tectonic: 'tectonic', latexmk: null, pandoc: 'pandoc', ghostscript: null };
     case 'project.set_main':
       return { ...info, main: path };
+    case 'bib.abstracts':
+      return {
+        works: (params.keys as string[])
+          .filter((k) => k !== 'nobody2099')
+          .map((k) => ({ key: k, title: k, authors: '', year: null, abstract: k === 'vaswani2017attention' ? 'The dominant sequence transduction models…' : null, source: null })),
+      };
     case 'bib.verify':
       return {
         results: [

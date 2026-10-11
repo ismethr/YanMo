@@ -25,7 +25,18 @@ export type RewriteAction = 'polish' | 'academic' | 'translate_to_english' | 'tr
 export type AiTask =
   | { kind: 'rewrite'; action: RewriteAction; selection: string }
   | { kind: 'chat'; history: { role: 'user' | 'assistant'; content: string }[] }
-  | { kind: 'explain_error'; diagnostics: string; source: string };
+  | { kind: 'explain_error'; diagnostics: string; source: string }
+  | { kind: 'check_citations'; passage: string; works: CitedWork[] };
+
+/** 被引文献的标题与摘要（bib.abstracts） */
+export interface CitedWork {
+  key: string;
+  title: string;
+  authors: string;
+  year: number | null;
+  abstract: string | null;
+  source: string | null;
+}
 
 export interface AiContext {
   file?: string | null;
@@ -104,6 +115,15 @@ async function preview(id: string, task: AiTask, onText: (t: string) => void): P
   if (task.kind === 'rewrite') {
     rewrite = task.selection.replace('改变了序列建模', '从根本上改变了序列建模的范式').replace(/\s+/g, ' ').trim();
     text = '```latex\n' + rewrite + '\n```';
+  } else if (task.kind === 'check_citations') {
+    text = task.works
+      .map((w) =>
+        tr(
+          `${w.key} — 部分支持：（预览模式示例）摘要与论述方向一致，但没有直接给出文中引用的结论。`,
+          `${w.key} — Partly supported: (preview sample) the abstract points the same way but does not state the cited claim directly.`,
+        ),
+      )
+      .join('\n');
   } else if (task.kind === 'explain_error') {
     text = tr(
       '（预览模式示例）`figures/arch.pdf` 不存在，所以 `\\includegraphics` 无法载入图片。把图片导出为 PDF 放到 figures/ 目录即可。',

@@ -44,6 +44,7 @@
       title: tr(`AI：${label}选中的文字`, `AI: ${label} (selection)`),
       run: () => void ai.rewrite(a),
     })),
+    { id: 'ai.check_citations', title: tr('AI：核查选中文字的引用', 'AI: Check Citations in Selection'), run: () => void ai.checkCitations() },
     { id: 'ai.explain_error', title: tr('AI：解释编译错误', 'AI: Explain Build Errors'), run: () => { app.aiOpen = true; void ai.explainError(); } },
     { id: 'ai.settings', title: tr('AI 设置', 'AI Settings'), run: () => { app.aiOpen = true; ai.showSettings = true; } },
     {
