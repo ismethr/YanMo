@@ -1,6 +1,6 @@
 # 更新日志
 
-## 未发布
+## v0.4.0（2026-10-11）
 
 ### 与 Overleaf 互通
 - 导出为 Overleaf 项目（zip）：可直接在 Overleaf 用 New Project → Upload Project 上传；不含 .yanmo、.git 等隐藏目录、编译中间文件、Office 文档、压缩包和由同名 .tex 编译出的 PDF；超过 Overleaf 50 MB 上传限制时提示
