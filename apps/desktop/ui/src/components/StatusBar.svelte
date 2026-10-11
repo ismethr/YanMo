@@ -2,6 +2,7 @@
   import { app } from '../lib/store.svelte';
   import { inTauri } from '../lib/backend';
   import { i18n, tr } from '../lib/i18n.svelte';
+  import { updater } from '../lib/updater.svelte';
 
   const demo = !inTauri && new URLSearchParams(location.search).has('demo');
 
@@ -42,6 +43,13 @@
     <span>{app.isDirty(app.active) ? tr('未保存', 'Unsaved') : tr('已保存', 'Saved')}</span>
   {/if}
   {#if app.index}<span>{app.index.total_words.toLocaleString()} {app.wordUnit}</span>{/if}
+  {#if updater.progress !== null}
+    <span class="update">{tr('正在更新', 'Updating')} {Math.round(updater.progress * 100)}%</span>
+  {:else if updater.available}
+    <button class="update" title={tr('下载并安装，完成后自动重启', 'Download, install and restart')} onclick={() => void updater.install()}
+      >{tr(`更新到 ${updater.available.version}`, `Update to ${updater.available.version}`)}</button
+    >
+  {/if}
   <span>UTF-8</span>
   <button
     class="lang"
@@ -74,7 +82,8 @@
   .grow {
     flex: 1;
   }
-  .preview {
+  .preview,
+  .update {
     color: var(--accent);
   }
 </style>

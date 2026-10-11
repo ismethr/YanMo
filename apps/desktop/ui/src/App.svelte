@@ -3,6 +3,7 @@
   import { app, PDF_TAB } from './lib/store.svelte';
   import { inTauri, launchFolder } from './lib/backend';
   import { syncBackendLang, tr } from './lib/i18n.svelte';
+  import { updater } from './lib/updater.svelte';
   import TitleBar from './components/TitleBar.svelte';
   import ActivityBar from './components/ActivityBar.svelte';
   import Sidebar from './components/Sidebar.svelte';
@@ -43,6 +44,8 @@
 
   onMount(async () => {
     await syncBackendLang();
+    // 启动稍后再检查更新，不和打开项目抢资源
+    setTimeout(() => void updater.autoCheck(), 5000);
     if (inTauri) {
       const folder = await launchFolder();
       if (folder) await app.openFolder(folder);

@@ -16,6 +16,7 @@
 
 4. 流水线在 macOS（Apple 芯片 / Intel）、Windows、Linux 上构建安装包，上传到同名的 **GitHub Release 草稿**。
    在 Releases 页面检查各平台的安装包能否正常安装、打开、编译示例论文，然后点击 **Publish release**。
+   发布后它就成为 latest 版本，已安装的应用会通过其中的 `latest.json` 发现更新。不要删除 `.app.tar.gz` 与 `.sig` 文件，它们是自动更新用的。
 
 也可以在 Actions 页面手动运行 Release 工作流（workflow_dispatch），用于试构建。
 
@@ -27,8 +28,36 @@ pnpm --dir apps/desktop/ui install
 pnpm --dir apps/desktop/ui tauri build --config ../src-tauri/tauri.release.conf.json
 ```
 
+`tauri.release.conf.json` 会生成自动更新包，需要签名私钥：先设置环境变量
+`TAURI_SIGNING_PRIVATE_KEY`（私钥文件路径或内容）与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`，否则打包会失败。
+
 产物在 `target/release/bundle/`。`tauri.release.conf.json` 只在打包时使用：它把 Tectonic 作为 sidecar 打进安装包，
 并为 macOS 应用做 ad-hoc 签名。日常开发与 CI 不需要下载 Tectonic。
+
+## 自动更新
+
+应用启动后（每天最多一次）请求 `https://github.com/ismethr/YanMo/releases/latest/download/latest.json`，
+发现新版本时在状态栏提示，点击后下载、校验签名、安装并重启。命令面板中也可以"检查更新"。
+更新包用 minisign 签名，应用只接受与 `tauri.conf.json` 中 `plugins.updater.pubkey` 匹配的签名。
+
+### 一次性配置签名密钥
+
+1. 生成密钥（会提示设置密码）：
+
+   ```bash
+   pnpm --dir apps/desktop/ui tauri signer generate -w ~/.tauri/yanmo.key
+   ```
+
+   得到私钥 `~/.tauri/yanmo.key` 与公钥 `~/.tauri/yanmo.key.pub`。**私钥丢失后已安装的应用将无法再更新**，请备份。
+2. 把私钥与密码存为仓库的 Actions secrets：
+
+   ```bash
+   gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/yanmo.key
+   gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+   ```
+
+3. 把公钥文件的内容填入 `apps/desktop/src-tauri/tauri.conf.json` 的 `plugins.updater.pubkey` 并提交。
+   公钥为空时应用不检查更新。
 
 ## 内置的 Tectonic
 

@@ -5,6 +5,7 @@
   import type { CommandMeta } from '../lib/types';
   import { ai, rewriteLabels } from '../lib/ai-store.svelte';
   import { i18n, tr } from '../lib/i18n.svelte';
+  import { updater } from '../lib/updater.svelte';
   import type { RewriteAction } from '../lib/ai';
 
   interface Item {
@@ -51,6 +52,7 @@
       run: () => void app.copyMcpCommand(),
     },
     { id: 'view.toggle_ai', title: tr('切换 AI 面板', 'Toggle AI Panel'), key: '⌘I', run: () => (app.aiOpen = !app.aiOpen) },
+    { id: 'app.update', title: tr('检查更新', 'Check for Updates'), run: () => void updater.check() },
     {
       id: 'app.set_lang',
       title: i18n.lang === 'zh' ? 'Switch to English（切换为英文界面）' : '切换为中文界面 (Switch to Chinese)',
