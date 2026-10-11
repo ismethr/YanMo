@@ -45,6 +45,11 @@
     })),
     { id: 'ai.explain_error', title: tr('AI：解释编译错误', 'AI: Explain Build Errors'), run: () => { app.aiOpen = true; void ai.explainError(); } },
     { id: 'ai.settings', title: tr('AI 设置', 'AI Settings'), run: () => { app.aiOpen = true; ai.showSettings = true; } },
+    {
+      id: 'mcp.copy',
+      title: tr('接入 Claude Code 等 Agent（复制 MCP 命令）', 'Connect Claude Code or Other Agents (Copy MCP Command)'),
+      run: () => void app.copyMcpCommand(),
+    },
     { id: 'view.toggle_ai', title: tr('切换 AI 面板', 'Toggle AI Panel'), key: '⌘I', run: () => (app.aiOpen = !app.aiOpen) },
     {
       id: 'app.set_lang',

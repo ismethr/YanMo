@@ -1,0 +1,36 @@
+# 让 Claude Code 等 Agent 接入论文（MCP）
+
+`ym mcp` 在标准输入输出上运行一个 [MCP](https://modelcontextprotocol.io) Server，把研墨的命令注册表开放给 Claude Code、Codex 等编程 Agent。
+Agent 可以读取论文大纲与图表、检查引用问题、编译并读取错误、导入文献，和桌面应用里用的是同一套命令。
+
+## 接入
+
+桌面应用里打开论文后，按 ⇧⌘P 运行"接入 Claude Code 等 Agent（复制 MCP 命令）"，会复制一条类似下面的命令，在终端中运行即可：
+
+```bash
+claude mcp add yanmo -- /Applications/YanMo.app/Contents/MacOS/ym mcp -C /path/to/paper
+```
+
+`ym` 随安装包一起安装（macOS 在 `YanMo.app/Contents/MacOS/`，Windows 在安装目录，Linux deb/rpm 在 `/usr/bin/`）。
+使用 AppImage 或只想用命令行时，从 [Releases](https://github.com/ismethr/YanMo/releases) 下载 `ym-<版本>-<平台>` 压缩包。
+
+其他客户端的配置方式相同：命令为 `ym`，参数为 `mcp -C <论文目录>`。可加 `--lang en` 或 `--lang zh` 指定消息语言，`--main <文件>` 指定主文件。
+
+## 工具
+
+| 工具 | 作用 | 改动文件 |
+|---|---|---|
+| `project_index` | 章节大纲（label、位置、字数）、图表公式、全部 label 与文件 | 否 |
+| `check_run` | 检查未定义引用、重复 label、缺失图片、未引用的图表与文献等 | 否 |
+| `compile_run` | 编译 PDF，返回带文件与行号的错误和警告 | 生成 `.yanmo/build/` |
+| `compile_toolchain` | 可用的编译引擎与工具 | 否 |
+| `project_info` / `project_tree` | 主文件、独立文档列表、文件树 | 否 |
+| `project_open` / `project_set_main` | 打开其他论文目录；切换主文件 | 后者写 `.yanmo/project.toml` |
+| `bib_fetch` | 按 DOI / arXiv 查询 BibTeX（联网） | 否 |
+| `bib_import` / `bib_add` | 把文献加入项目的 .bib 文件 | 是 |
+| `asset_import` | 把图片复制到项目图片目录 | 是 |
+| `export_docx` | 用 Pandoc 导出 Word | 写入 `.yanmo/export/` |
+| `synctex_forward` / `synctex_inverse` | 源码行与 PDF 位置互相定位 | 否 |
+
+改稿本身交给 Agent 自己的文件编辑工具，并由你在 Agent 中确认；研墨不开放任意写文件的命令。
+会改动文件的工具都标注为非只读，客户端会按自己的权限设置请你确认。每次调用都会重新读取磁盘上的源码，Agent 改完文件后再检查即可看到最新结果。

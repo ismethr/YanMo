@@ -53,6 +53,9 @@ enum Cmd {
     },
     /// Import a reference by DOI or arXiv ID
     BibImport { id: String },
+    /// Run an MCP server on stdio for Claude Code, Codex and other agents, e.g.
+    /// `claude mcp add yanmo -- ym mcp -C /path/to/paper`
+    Mcp,
     /// Run any registered command, e.g. `ym exec project.index`; lists all commands without an ID
     Exec {
         id: Option<String>,
@@ -165,6 +168,15 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             } else {
                 ExitCode::SUCCESS
             })
+        }
+        Cmd::Mcp => {
+            let mut server = ym_mcp::Server::new(Some(root), cli.main.as_deref())?;
+            ym_mcp::serve(
+                &mut server,
+                std::io::stdin().lock(),
+                std::io::stdout().lock(),
+            )?;
+            Ok(ExitCode::SUCCESS)
         }
         Cmd::Exec { id, params } => {
             let registry = ym_commands::Registry::with_builtins();

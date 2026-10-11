@@ -21,6 +21,8 @@ pub struct CommandMeta {
     pub title: &'static str,
     /// 英文显示名
     pub title_en: &'static str,
+    /// 给 Agent 看的说明（英文）：做什么、返回什么、何时使用。MCP tool 的 description 即取自这里。
+    pub description: &'static str,
     /// 参数的 JSON Schema，同时用于 MCP tool 描述与 AI 工具调用
     pub params_schema: Value,
     /// 是否修改项目文件；修改类命令在 AI/MCP 调用时必须经用户确认

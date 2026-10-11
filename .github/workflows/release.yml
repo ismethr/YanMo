@@ -46,6 +46,15 @@ jobs:
         shell: bash
         run: sh scripts/fetch-tectonic.sh --sidecar ${{ matrix.target }}
 
+      # ym 命令行（含 MCP Server）：作为 sidecar 打进安装包，供 Claude Code 等 Agent 调用
+      - name: Build ym CLI sidecar
+        shell: bash
+        run: |
+          cargo build --release -p ym-cli --target ${{ matrix.target }}
+          ext=""; [[ "${{ matrix.target }}" == *windows* ]] && ext=".exe"
+          mkdir -p apps/desktop/src-tauri/binaries
+          cp "target/${{ matrix.target }}/release/ym$ext" "apps/desktop/src-tauri/binaries/ym-${{ matrix.target }}$ext"
+
       - run: pnpm --dir apps/desktop/ui install --frozen-lockfile
 
       - uses: tauri-apps/tauri-action@v0
@@ -79,3 +88,22 @@ jobs:
             **macOS 首次打开**：如果提示"无法验证开发者"，请在"访达"中右键点击 YanMo，选择"打开"；或运行 `xattr -cr /Applications/YanMo.app`。
 
             更新内容见 [CHANGELOG](https://github.com/ismethr/YanMo/blob/main/CHANGELOG.md)。
+
+      # 单独的命令行压缩包，给只用命令行或 AppImage 的用户
+      - name: Upload standalone ym CLI
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dir="ym-${{ github.ref_name }}-${{ matrix.target }}"
+          mkdir "$dir"
+          if [[ "${{ matrix.target }}" == *windows* ]]; then
+            cp "target/${{ matrix.target }}/release/ym.exe" "$dir/"
+            7z a "$dir.zip" "$dir" > /dev/null
+            gh release upload "${{ github.ref_name }}" "$dir.zip" --clobber
+          else
+            cp "target/${{ matrix.target }}/release/ym" "$dir/"
+            tar -czf "$dir.tar.gz" "$dir"
+            gh release upload "${{ github.ref_name }}" "$dir.tar.gz" --clobber
+          fi

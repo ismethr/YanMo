@@ -14,6 +14,7 @@ fn main() {
             bridge::execute,
             bridge::list_commands,
             bridge::launch_folder,
+            bridge::cli_path,
             ai::ai_settings_get,
             ai::ai_settings_set,
             ai::ai_set_key,

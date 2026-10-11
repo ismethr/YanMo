@@ -1,6 +1,6 @@
 [package]
 name = "ym-mcp"
-description = "MCP Server：把命令注册表暴露给 Claude Code / Codex 等外部 Agent（P1）"
+description = "MCP Server：把命令注册表暴露给 Claude Code、Codex 等外部 Agent（通过 `ym mcp` 启动）"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

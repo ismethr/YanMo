@@ -214,8 +214,36 @@ fn meta(
         id,
         title,
         title_en,
+        description: describe(id),
         params_schema,
         mutating,
+    }
+}
+
+/// 给 Agent 的命令说明。路径一律相对项目根目录。
+fn describe(id: &str) -> &'static str {
+    match id {
+        "app.set_lang" => "Set the language (zh or en) of messages produced by later commands.",
+        "project.open" => "Open a LaTeX project folder (absolute path) and detect its main file. Later commands work on this project.",
+        "project.info" => "Project root, the main .tex file, and every standalone document (file with \\documentclass) in the folder.",
+        "project.tree" => "The project's file tree (tex, bib, images and other files), excluding hidden folders and build output.",
+        "project.index" => "Structure of the paper: section outline with labels, file locations and word counts; figures, tables and equations with captions, labels and reference locations; all labels; all included files. Re-parsed from source on every call.",
+        "project.set_main" => "Choose which standalone .tex document is the main file for indexing, checking and compiling. Saved in .yanmo/project.toml.",
+        "export.docx" => "Convert the paper to Word (.docx) with Pandoc. Cross-references and figure numbers match the PDF if the paper was compiled first. Writes into .yanmo/export/ unless an output path is given. Requires Pandoc.",
+        "file.base64" => "Read a binary file (image or PDF) as base64.",
+        "bib.fetch" => "Look up a DOI or arXiv ID online and return a BibTeX entry without changing any file.",
+        "bib.add" => "Append a BibTeX entry to the project's .bib file (creates refs.bib if there is none). Returns the key; reports an existing duplicate instead of adding it twice.",
+        "bib.import" => "Fetch a DOI or arXiv ID online and append the entry to the project's .bib file. Returns the citation key to use with \\cite.",
+        "asset.import" => "Copy an image into the project's figures folder and return the path and a suggested label for \\includegraphics. Accepts PNG, JPG, PDF and EPS.",
+        "check.run" => "Check the whole paper for problems: undefined \\ref and \\cite, duplicate labels and bibliography keys, missing image files, bib syntax errors, figures and references that are never cited. Returns issues with file and line, plus the parsed bibliography.",
+        "compile.run" => "Compile the paper to PDF (Tectonic by default, or latexmk with xelatex / pdflatex / lualatex). Returns success, the PDF path, and errors and warnings with file and line. The first Tectonic build downloads packages and can take minutes.",
+        "compile.pdf" => "Read the last compiled PDF as base64.",
+        "compile.toolchain" => "Which TeX engines and helper tools (Tectonic, latexmk, Pandoc, Ghostscript) are available.",
+        "synctex.forward" => "Find where a source line appears in the compiled PDF (page and rectangle in PDF points).",
+        "synctex.inverse" => "Find the source file and line for a point on a PDF page (PDF points, origin at the top left).",
+        "file.read" => "Read a text file in the project.",
+        "file.write" => "Overwrite a text file in the project.",
+        _ => "",
     }
 }
 

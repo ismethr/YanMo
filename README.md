@@ -18,6 +18,12 @@
 
 macOS 首次打开如提示"无法验证开发者"：在"访达"中右键点击 YanMo 选择"打开"，或运行 `xattr -cr /Applications/YanMo.app`。
 
+界面支持中文与英文，在状态栏右下角切换。
+
+## 接入 Claude Code 等 Agent
+
+安装包附带 `ym` 命令行，其中的 `ym mcp` 是 MCP Server：Agent 可以读取大纲、检查引用、编译并读取错误、导入文献。接入方法见 [docs/mcp.md](docs/mcp.md)。
+
 ## 开发
 
 依赖：Rust stable、Node 22、pnpm（版本见 `apps/desktop/ui/package.json` 的 `packageManager`）；Linux 另需 webkit2gtk-4.1。

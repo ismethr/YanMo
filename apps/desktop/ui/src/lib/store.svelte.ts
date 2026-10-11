@@ -1,6 +1,6 @@
 // 应用状态（Svelte 5 runes）。所有对项目的读写都经由 backend.execute，即 Rust 命令注册表。
 
-import { execute, pickFolder, revealInFolder } from './backend';
+import { cliPath, execute, pickFolder, revealInFolder } from './backend';
 import { setLang, tr, type Lang } from './i18n.svelte';
 import type {
   CheckResult,
@@ -233,6 +233,25 @@ class AppState {
     execute<Toolchain>('compile.toolchain').then((t) => (this.toolchain = t), () => {});
     // 沿用上次编译留下的 PDF（如果有）
     await this.loadPdf(true);
+  }
+
+  /** 复制让 Claude Code 接入当前论文的命令（MCP）。 */
+  async copyMcpCommand() {
+    if (!this.project) return;
+    const cli = (await cliPath()) ?? 'ym';
+    const q = (s: string) => (/[\s"']/.test(s) ? `"${s}"` : s);
+    const cmd = `claude mcp add yanmo -- ${q(cli)} mcp -C ${q(this.project.root)}`;
+    try {
+      await navigator.clipboard.writeText(cmd);
+      this.flash(
+        tr(
+          '已复制 Claude Code 接入命令，在终端中运行即可让它读取大纲、检查和编译这篇论文',
+          'Copied the Claude Code setup command. Run it in a terminal to let Claude Code read the outline, check and compile this paper',
+        ),
+      );
+    } catch {
+      this.flash(cmd);
+    }
   }
 
   /** 切换界面语言；检查结果等由后端生成的文字需要重新拉取。 */

@@ -102,3 +102,13 @@ pub fn launch_folder() -> Option<String> {
         .skip(1)
         .find(|a| !a.starts_with('-') && std::path::Path::new(a).is_dir())
 }
+
+/// 随应用安装的 `ym` 命令行（与主程序在同一目录，打包时作为 sidecar 放入）。
+/// 用于生成 Claude Code 等 Agent 的 MCP 接入命令；找不到时返回 None。
+#[tauri::command]
+pub fn cli_path() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    let name = if cfg!(windows) { "ym.exe" } else { "ym" };
+    let path = exe.parent()?.join(name);
+    path.is_file().then(|| path.to_string_lossy().into_owned())
+}

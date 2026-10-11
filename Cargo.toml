@@ -23,6 +23,7 @@ ym-compile  = { path = "crates/ym-compile" }
 ym-bib      = { path = "crates/ym-bib" }
 ym-ai       = { path = "crates/ym-ai" }
 ym-check    = { path = "crates/ym-check" }
+ym-mcp      = { path = "apps/mcp" }
 
 # 第三方
 serde      = { version = "1", features = ["derive"] }

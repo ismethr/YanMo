@@ -43,6 +43,11 @@ export async function launchFolder(): Promise<string | null> {
   return inTauri ? invoke<string | null>('launch_folder') : null;
 }
 
+/** 随应用安装的 ym 命令行路径；预览模式与找不到时返回 null（假定 ym 在 PATH 中）。 */
+export async function cliPath(): Promise<string | null> {
+  return inTauri ? invoke<string | null>('cli_path') : null;
+}
+
 /** 弹出系统对话框选择论文文件夹；预览模式直接返回示例论文。 */
 export async function pickFolder(): Promise<string | null> {
   if (!inTauri) return info.root;

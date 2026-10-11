@@ -14,6 +14,7 @@ ym-model.workspace = true
 ym-latex.workspace = true
 ym-check.workspace = true
 ym-commands.workspace = true
+ym-mcp.workspace = true
 clap.workspace = true
 anyhow.workspace = true
 serde.workspace = true

@@ -5199,6 +5199,7 @@ dependencies = [
  "ym-check",
  "ym-commands",
  "ym-latex",
+ "ym-mcp",
  "ym-model",
 ]
 
