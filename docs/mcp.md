@@ -26,6 +26,7 @@ claude mcp add yanmo -- /Applications/YanMo.app/Contents/MacOS/ym mcp -C /path/t
 | `compile_toolchain` | 可用的编译引擎与工具 | 否 |
 | `project_info` / `project_tree` | 主文件、独立文档列表、文件树 | 否 |
 | `project_open` / `project_set_main` | 打开其他论文目录；切换主文件 | 后者写 `.yanmo/project.toml` |
+| `outline_move` | 把章节（连同子节）移到同级章节之前或之后；章节各自成文件时调整 `\input` 顺序 | 是 |
 | `bib_fetch` | 按 DOI / arXiv 查询 BibTeX（联网） | 否 |
 | `bib_import` / `bib_add` | 把文献加入项目的 .bib 文件 | 是 |
 | `asset_import` | 把图片复制到项目图片目录 | 是 |

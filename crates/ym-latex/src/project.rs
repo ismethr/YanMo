@@ -23,6 +23,8 @@ pub struct ProjectIndex {
     pub front_words: u32,
     /// 找不到目标文件的 `\input`/`\include`
     pub unresolved_includes: Vec<Located>,
+    /// 被包含的文件 → 父文件中包含它的那条 `\input` 等命令
+    pub included_from: HashMap<PathBuf, SourceSpan>,
 }
 
 impl ProjectIndex {
@@ -216,6 +218,7 @@ pub fn index_project(root: &Path, main: &Path) -> io::Result<ProjectIndex> {
         flat: Vec::new(),
         front_words: 0,
         unresolved: Vec::new(),
+        included_from: HashMap::new(),
     };
     let src = fs::read_to_string(root.join(&main))?;
     walker.walk(main.clone(), &src, true);
@@ -234,6 +237,7 @@ pub fn index_project(root: &Path, main: &Path) -> io::Result<ProjectIndex> {
         outline,
         front_words: walker.front_words,
         unresolved_includes: walker.unresolved,
+        included_from: walker.included_from,
     })
 }
 
@@ -246,6 +250,7 @@ struct Walker<'r> {
     flat: Vec<(Heading, u32)>,
     front_words: u32,
     unresolved: Vec<Located>,
+    included_from: HashMap<PathBuf, SourceSpan>,
 }
 
 impl Walker<'_> {
@@ -271,7 +276,12 @@ impl Walker<'_> {
                     let child_in_body = in_body && matches!(item, FlowItem::Include(_));
                     match self.resolve(&include.name) {
                         Some(path) => match fs::read_to_string(self.root.join(&path)) {
-                            Ok(child) => self.walk(path, &child, child_in_body),
+                            Ok(child) => {
+                                self.included_from
+                                    .entry(path.clone())
+                                    .or_insert_with(|| include.span.clone());
+                                self.walk(path, &child, child_in_body)
+                            }
                             Err(_) => self.unresolved.push(include.clone()),
                         },
                         None => self.unresolved.push(include.clone()),

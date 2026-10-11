@@ -108,6 +108,7 @@ class AppState {
   reveal = $state<{ path: string; line: number; n: number } | null>(null);
   notice = $state<{ text: string; action?: { label: string; run: () => void } } | null>(null);
   recent = $state<string[]>(loadRecent());
+  moving = $state(false);
 
   // 布局（按用户记住）
   layout = $state<Layout>(loadLayout());
@@ -164,6 +165,8 @@ class AppState {
   exporting = $state(false);
   /** 请求编辑器在光标处插入文本；n 递增以区分多次请求 */
   insertRequest = $state<{ path: string; text: string; n: number } | null>(null);
+  /** 文件在磁盘上被改动（如移动章节）后，请求正在显示它的编辑器同步新内容 */
+  syncRequest = $state<{ path: string; text: string; n: number } | null>(null);
   /** 编辑器当前选区（只记录文本标签页） */
   selection = $state<{ path: string; from: number; to: number; text: string } | null>(null);
   /** 请求编辑器替换一段文本；编辑器校验原文未变后执行，并通过 resolve 返回结果 */
@@ -233,6 +236,55 @@ class AppState {
     execute<Toolchain>('compile.toolchain').then((t) => (this.toolchain = t), () => {});
     // 沿用上次编译留下的 PDF（如果有）
     await this.loadPdf(true);
+  }
+
+  /** 保存所有未保存的文件 */
+  async saveAll() {
+    for (const path of Object.keys(this.docs)) if (this.isDirty(path)) await this.save(path);
+  }
+
+  /** 文件在磁盘上被改动后，更新已打开的内容（编辑器中的改动作为一次可撤销的编辑） */
+  async reloadFile(path: string) {
+    const doc = this.docs[path];
+    if (!doc) return;
+    const { text } = await execute<{ text: string }>('file.read', { path });
+    doc.text = text;
+    doc.saved = text;
+    this.syncRequest = { path, text, n: (this.syncRequest?.n ?? 0) + 1 };
+  }
+
+  /** 把章节移到同级章节 target 之前或之后。undo 为 false 时不再提供撤销（撤销本身也是一次移动）。 */
+  async moveSection(id: string, target: string, position: 'before' | 'after', undo = true) {
+    if (this.moving || id === target) return;
+    // 记下原来的位置，用于撤销
+    const row = this.outlineRows.find((r) => r.id === id);
+    const siblings = this.outlineRows.filter(
+      (r) => r.depth === row?.depth && r.parents.join('/') === row?.parents.join('/'),
+    );
+    const i = siblings.findIndex((r) => r.id === id);
+    const back = siblings[i + 1]
+      ? { target: siblings[i + 1].id, position: 'before' as const }
+      : siblings[i - 1]
+        ? { target: siblings[i - 1].id, position: 'after' as const }
+        : null;
+    this.moving = true;
+    try {
+      await this.saveAll();
+      const r = await execute<{ file: string; changed: boolean }>('outline.move', { id, target, position });
+      if (!r.changed) return;
+      await this.reloadFile(r.file);
+      await this.refresh();
+      const title = row ? `${row.number ? `${row.number} ` : ''}${row.title}` : id;
+      this.flash(
+        tr(`已移动「${title}」`, `Moved “${title}”`),
+        undo && back ? { label: tr('撤销', 'Undo'), run: () => void this.moveSection(id, back.target, back.position, false) } : undefined,
+      );
+      // 不自动编译：编译结果的提示会盖住带"撤销"的提示；下次保存或手动编译时再编
+    } catch (e) {
+      this.flash(String(e).replace(/^Error:\s*/, ''));
+    } finally {
+      this.moving = false;
+    }
   }
 
   /** 复制让 Claude Code 接入当前论文的命令（MCP）。 */

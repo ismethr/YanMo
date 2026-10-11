@@ -106,6 +106,64 @@
 
   const fmt = (n: number) => n.toLocaleString();
 
+  // 拖动章节调整顺序：只能放在同级章节之前或之后（用指针事件实现，避免与拖入图片冲突）
+  let drag = $state<{ id: string; depth: number; parents: string; x: number; y: number; active: boolean } | null>(null);
+  let drop = $state<{ id: string; position: 'before' | 'after' } | null>(null);
+  let suppressClick = false;
+
+  /** 插入线画在哪一行的哪条边：放在展开的章节之后时，画在它最后一个可见子节的下方 */
+  let indicator = $derived.by(() => {
+    if (!drop) return null;
+    if (drop.position === 'before') return { id: drop.id, edge: 'top' };
+    const last = rows.filter((r) => r.parents.includes(drop!.id)).at(-1);
+    return { id: last?.id ?? drop.id, edge: 'bottom' };
+  });
+
+  function dragStart(e: PointerEvent, r: { id: string; depth: number; parents: string[] }) {
+    if (e.button !== 0 || app.moving) return;
+    drag = { id: r.id, depth: r.depth, parents: r.parents.join('/'), x: e.clientX, y: e.clientY, active: false };
+    window.addEventListener('pointermove', dragMove);
+    window.addEventListener('pointerup', dragEnd);
+    window.addEventListener('keydown', dragKey);
+  }
+
+  function dragMove(e: PointerEvent) {
+    if (!drag) return;
+    if (!drag.active) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
+      drag.active = true;
+    }
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('.orow');
+    const row = rows.find((r) => r.id === el?.dataset.id);
+    if (!el || !row || row.id === drag.id || row.depth !== drag.depth) {
+      drop = null;
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    drop = { id: row.id, position: e.clientY < rect.top + rect.height / 2 ? 'before' : 'after' };
+  }
+
+  function dragStop() {
+    window.removeEventListener('pointermove', dragMove);
+    window.removeEventListener('pointerup', dragEnd);
+    window.removeEventListener('keydown', dragKey);
+    drag = null;
+    drop = null;
+  }
+
+  function dragEnd() {
+    if (drag?.active) {
+      suppressClick = true;
+      setTimeout(() => (suppressClick = false));
+      if (drop) void app.moveSection(drag.id, drop.id, drop.position);
+    }
+    dragStop();
+  }
+
+  function dragKey(e: KeyboardEvent) {
+    if (e.key === 'Escape') dragStop();
+  }
+
   // 侧栏宽度拖拽
   function startResize(e: PointerEvent) {
     const startX = e.clientX;
@@ -165,6 +223,9 @@
             class="orow"
             class:top={r.depth === 0}
             class:current={app.currentSectionId === r.id}
+            class:dragging={drag?.active && drag.id === r.id}
+            class:drop-top={indicator?.id === r.id && indicator.edge === 'top'}
+            class:drop-bottom={indicator?.id === r.id && indicator.edge === 'bottom'}
             data-id={r.id}
             style:padding-left="{6 + r.depth * 14}px"
           >
@@ -175,7 +236,12 @@
             {:else}
               <span class="fold"></span>
             {/if}
-            <button class="otitle" title="{r.number} {r.title} · {fmt(r.total)} {app.wordUnit}" onclick={() => app.openFile(r.file, r.line)}>
+            <button
+              class="otitle"
+              title="{r.number} {r.title} · {fmt(r.total)} {app.wordUnit}{tr(' · 拖动可调整顺序', ' · drag to reorder')}"
+              onpointerdown={(e) => dragStart(e, r)}
+              onclick={() => !suppressClick && app.openFile(r.file, r.line)}
+            >
               {#if r.number}<span class="num">{r.number}</span>{/if}
               <span class="name">{r.title}</span>
               {#if r.depth === 0 && r.total > 0}<span class="count">{fmt(r.total)}</span>{/if}
@@ -352,6 +418,18 @@
   }
   .orow.current {
     background: var(--active);
+  }
+  .orow.dragging {
+    opacity: 0.45;
+  }
+  .orow.drop-top {
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+  .orow.drop-bottom {
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .outline {
+    user-select: none;
   }
   .fold {
     flex: 0 0 16px;

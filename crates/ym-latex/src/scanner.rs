@@ -414,6 +414,18 @@ impl<'a> Parser<'a> {
         if name != "label" {
             self.heading_label_open = false;
         }
+        if self.counting
+            && matches!(
+                name,
+                "appendix"
+                    | "bibliography"
+                    | "bibliographystyle"
+                    | "printbibliography"
+                    | "backmatter"
+            )
+        {
+            self.out.breaks.push(start);
+        }
 
         match name {
             "verb" => self.skip_verb(),
@@ -431,7 +443,7 @@ impl<'a> Parser<'a> {
                 self.skip_all_args();
             }
             "begin" => self.begin(start),
-            "end" => self.end(),
+            "end" => self.end(start),
             "label" => self.label(),
             "caption" => self.caption(),
             "includegraphics" => self.includegraphics(start),
@@ -699,6 +711,9 @@ impl<'a> Parser<'a> {
         let Some((env, _, _)) = self.group_str() else {
             return;
         };
+        if env == "thebibliography" && self.counting {
+            self.out.breaks.push(start);
+        }
         if VERBATIM_ENVS.contains(&env) {
             let end = format!("\\end{{{env}}}");
             self.pos = match self.src[self.pos..].find(&end) {
@@ -734,11 +749,12 @@ impl<'a> Parser<'a> {
         });
     }
 
-    fn end(&mut self) {
+    fn end(&mut self, start: usize) {
         let Some((env, _, _)) = self.group_str() else {
             return;
         };
         if env == "document" {
+            self.out.breaks.push(start);
             self.flush_words();
             self.pos = self.b.len(); // \end{document} 之后的内容 LaTeX 不处理
             return;

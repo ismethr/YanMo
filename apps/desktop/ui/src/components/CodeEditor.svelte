@@ -99,6 +99,25 @@
     view.focus();
   });
 
+  // 文件在磁盘上被改动（移动章节等）：只替换不同的中间部分，光标与撤销历史得以保留
+  let lastSync = 0;
+  $effect(() => {
+    const r = app.syncRequest;
+    if (!view || !r || r.n === lastSync) return;
+    lastSync = r.n;
+    if (r.path !== current) {
+      states.delete(r.path);
+      return;
+    }
+    const old = view.state.doc.toString();
+    if (old === r.text) return;
+    let a = 0;
+    while (a < old.length && a < r.text.length && old[a] === r.text[a]) a++;
+    let b = 0;
+    while (b < old.length - a && b < r.text.length - a && old[old.length - 1 - b] === r.text[r.text.length - 1 - b]) b++;
+    view.dispatch({ changes: { from: a, to: old.length - b, insert: r.text.slice(a, r.text.length - b) } });
+  });
+
   // 替换一段文本（AI 改写被接受时）。先校验原文没有被改动，避免覆盖用户之后的编辑
   let lastReplace = 0;
   $effect(() => {

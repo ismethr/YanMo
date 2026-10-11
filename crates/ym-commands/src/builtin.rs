@@ -190,6 +190,19 @@ pub(crate) fn register(r: &mut Registry) {
         synctex_inverse,
     );
     r.register(
+        meta(
+            "outline.move",
+            ("移动章节", "Move Section"),
+            json!({"type": "object", "properties": {
+                "id": {"type": "string", "description": "Section id from project_index (its label, or a generated id)"},
+                "target": {"type": "string", "description": "Id of a section at the same level"},
+                "position": {"enum": ["before", "after"]}
+            }, "required": ["id", "target", "position"]}),
+            true,
+        ),
+        outline_move,
+    );
+    r.register(
         meta("file.read", ("读取文件", "Read File"), path_param, false),
         file_read,
     );
@@ -241,6 +254,7 @@ fn describe(id: &str) -> &'static str {
         "compile.toolchain" => "Which TeX engines and helper tools (Tectonic, latexmk, Pandoc, Ghostscript) are available.",
         "synctex.forward" => "Find where a source line appears in the compiled PDF (page and rectangle in PDF points).",
         "synctex.inverse" => "Find the source file and line for a point on a PDF page (PDF points, origin at the top left).",
+        "outline.move" => "Move a section, with its subsections, before or after another section of the same level. Only one file is rewritten and the moved text is kept as is; when each section is its own file, the \\input lines are reordered instead. Fails if the move would need to split a file.",
         "file.read" => "Read a text file in the project.",
         "file.write" => "Overwrite a text file in the project.",
         _ => "",
@@ -493,6 +507,32 @@ fn file_base64(ws: &mut Workspace, p: Value) -> CommandResult {
 #[derive(Deserialize)]
 struct IdParam {
     id: String,
+}
+
+#[derive(Deserialize)]
+struct MoveParam {
+    id: String,
+    target: String,
+    position: ym_latex::reorder::Position,
+}
+
+/// 移动章节：只重写一个文件，移动的文本原样保留。
+fn outline_move(ws: &mut Workspace, p: Value) -> CommandResult {
+    let MoveParam {
+        id,
+        target,
+        position,
+    } = params(p)?;
+    ws.invalidate();
+    let index = ws.index()?;
+    let plan = ym_latex::reorder::plan_move(index, &id, &target, position)
+        .map_err(|e| CommandError::Failed(e.to_string()))?;
+    let changed = plan.new_text != plan.old_text;
+    if changed {
+        fs::write(ws.resolve(&plan.file.to_string_lossy())?, &plan.new_text)?;
+        ws.invalidate();
+    }
+    Ok(json!({ "file": plan.file, "changed": changed }))
 }
 
 #[derive(Deserialize)]

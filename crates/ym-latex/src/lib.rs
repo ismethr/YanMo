@@ -7,6 +7,7 @@
 //! - [`index_project`]：从主文件出发沿 `\input`/`\include` 递归，得到 [`ProjectIndex`]
 
 mod project;
+pub mod reorder;
 mod scanner;
 pub mod text;
 
@@ -73,6 +74,9 @@ pub struct FileIndex {
     /// `\graphicspath` 中的目录
     pub graphics_paths: Vec<String>,
     pub flow: Vec<FlowItem>,
+    /// 正文中结束章节范围的位置（`\appendix`、参考文献、`\backmatter`、`\end{document}` 的起点）。
+    /// 移动章节时，最后一节的范围到这里为止，不把参考文献等一并带走。
+    pub breaks: Vec<usize>,
 }
 
 /// 解析单个 tex 文件。`path` 原样写入各 [`SourceSpan`]，建议传相对项目根目录的路径。

@@ -57,6 +57,25 @@ export async function pickFolder(): Promise<string | null> {
 }
 
 const previewFiles: Record<string, string> = { ...files };
+// 预览模式里的大纲可以被"移动章节"改动
+const previewIndex = structuredClone(index);
+
+/** 预览模式的移动章节：只调整内存中大纲的顺序 */
+function previewMove(id: string, target: string, position: string): boolean {
+  type Node = { id: string; children: Node[] };
+  const visit = (list: Node[]): boolean => {
+    const i = list.findIndex((s) => s.id === id);
+    const j = list.findIndex((s) => s.id === target);
+    if (i >= 0 && j >= 0) {
+      const [s] = list.splice(i, 1);
+      const k = list.findIndex((x) => x.id === target);
+      list.splice(position === 'before' ? k : k + 1, 0, s);
+      return true;
+    }
+    return list.some((s) => visit(s.children));
+  };
+  return visit(previewIndex.outline as Node[]);
+}
 
 function preview(id: string, params: Record<string, unknown>): unknown {
   const path = params.path as string;
@@ -67,7 +86,11 @@ function preview(id: string, params: Record<string, unknown>): unknown {
     case 'project.tree':
       return tree;
     case 'project.index':
-      return index;
+      return previewIndex;
+    case 'outline.move':
+      if (!previewMove(params.id as string, params.target as string, params.position as string))
+        throw new Error(tr('只能在同级章节之间移动', 'Sections can only be moved among sections of the same level'));
+      return { file: 'main.tex', changed: true };
     case 'check.run':
       return i18n.lang === 'en' ? checkEn : check;
     case 'app.set_lang':
