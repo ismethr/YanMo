@@ -127,6 +127,13 @@ function preview(id: string, params: Record<string, unknown>): unknown {
       return { tectonic: 'tectonic', latexmk: null, pandoc: 'pandoc', ghostscript: null };
     case 'project.set_main':
       return { ...info, main: path };
+    case 'bib.verify':
+      return {
+        results: [
+          { key: 'vaswani2017attention', status: 'not_found', notes: [tr('未在 Crossref 找到对应记录（书籍、报告、网页常见此情况），请人工确认', 'No matching Crossref record (common for books, reports and web pages); please check it by hand')], found: null, suggested_doi: null },
+          { key: 'unused2020', status: 'mismatch', notes: [tr('年份不一致：条目为 2020，登记为 2017', 'Year differs: 2020 in the entry, 2017 registered')], found: null, suggested_doi: null },
+        ],
+      };
     case 'outline.extract':
       throw new Error(tr('浏览器预览模式不支持拆分文件，请在桌面应用中使用', 'Moving a section to a file is not available in the browser preview; use the desktop app'));
     case 'export.docx':

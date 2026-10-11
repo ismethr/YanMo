@@ -112,6 +112,30 @@ pub(crate) fn register(r: &mut Registry) {
     );
     r.register(
         meta(
+            "bib.add_field",
+            ("补充文献字段", "Add Field to Reference"),
+            json!({"type": "object", "properties": {
+                "key": {"type": "string"},
+                "field": {"type": "string", "description": "e.g. doi"},
+                "value": {"type": "string"}
+            }, "required": ["key", "field", "value"]}),
+            true,
+        ),
+        bib_add_field,
+    );
+    r.register(
+        meta(
+            "bib.verify",
+            ("核查文献", "Verify References"),
+            json!({"type": "object", "properties": {
+                "keys": {"type": "array", "items": {"type": "string"}, "description": "Citation keys to check; all entries when omitted"}
+            }}),
+            false,
+        ),
+        bib_verify,
+    );
+    r.register(
+        meta(
             "bib.import",
             (
                 "通过 DOI / arXiv 导入文献",
@@ -280,6 +304,8 @@ fn describe(id: &str) -> &'static str {
         "outline.move" => "Move a section, with its subsections, before or after another section of the same level. Only one file is rewritten and the moved text is kept as is; when each section is its own file, the \\input lines are reordered instead. Fails if the move would need to split a file.",
         "outline.extract" => "Move a section (with its subsections) into a new .tex file and put an \\input line in its place. The file goes into the folder the paper already uses for included files (sections/ by default) and is named after the section label or title. The compiled paper is unchanged.",
         "outline.extract_undo" => "Undo outline.extract: restores the parent file and deletes the new file, only if neither has changed since.",
+        "bib.verify" => "Look up each bibliography entry on Crossref (or arXiv) to confirm it exists and that its title, first author and year match the registered record; suggests DOIs for entries without one. Sends only bibliographic data (title, first author, year, DOI). Results: ok, mismatch, not_found, skipped, error.",
+        "bib.add_field" => "Add a missing field (such as doi) to a bibliography entry. Inserts one line in the entry, keeping its indentation and alignment; fails if the field already exists.",
         "file.read" => "Read a text file in the project.",
         "file.write" => "Overwrite a text file in the project.",
         _ => "",
@@ -598,6 +624,69 @@ fn outline_extract_undo(ws: &mut Workspace, p: Value) -> CommandResult {
     fs::remove_file(&file)?;
     ws.invalidate();
     Ok(json!({ "parent": u.parent }))
+}
+
+#[derive(Deserialize, Default)]
+struct KeysParam {
+    #[serde(default)]
+    keys: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct FieldParam {
+    key: String,
+    field: String,
+    value: String,
+}
+
+/// 给条目补一个缺少的字段，只插入一行。
+fn bib_add_field(ws: &mut Workspace, p: Value) -> CommandResult {
+    let FieldParam { key, field, value } = params(p)?;
+    let field = field.trim().to_ascii_lowercase();
+    let entry = ws
+        .bib_entries(std::slice::from_ref(&key))?
+        .into_iter()
+        .next()
+        .ok_or_else(|| {
+            CommandError::Failed(tr!(
+                "文献库中没有 {key}",
+                "{key} is not in the bibliography"
+            ))
+        })?;
+    if entry.field(&field).is_some() {
+        return Err(CommandError::Failed(tr!(
+            "{key} 已有 {field} 字段",
+            "{key} already has a {field} field"
+        )));
+    }
+    let path = ws.resolve(&entry.span.file.to_string_lossy())?;
+    let text = fs::read_to_string(&path)?;
+    let (start, end) = (entry.span.start, entry.span.end.min(text.len()));
+    let updated = text
+        .get(start..end)
+        .and_then(|e| ym_bib::add_field(e, &field, value.trim()))
+        .ok_or_else(|| {
+            CommandError::Failed(tr!(
+                "无法识别 {key} 的条目格式",
+                "Cannot parse the entry for {key}"
+            ))
+        })?;
+    fs::write(
+        &path,
+        format!("{}{updated}{}", &text[..start], &text[end..]),
+    )?;
+    ws.invalidate();
+    Ok(json!({ "key": key, "file": entry.span.file }))
+}
+
+fn bib_verify(ws: &mut Workspace, p: Value) -> CommandResult {
+    let KeysParam { keys } = if p.is_null() {
+        KeysParam::default()
+    } else {
+        params(p)?
+    };
+    let entries = ws.bib_entries(&keys)?;
+    Ok(crate::verify_bib(&entries))
 }
 
 #[derive(Deserialize)]

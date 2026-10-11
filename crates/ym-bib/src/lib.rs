@@ -1,6 +1,7 @@
 //! 文献管理：解析、写回（尽量保持原始格式）、在线导入。
 
 pub mod import;
+pub mod verify;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -341,4 +342,58 @@ mod tests {
             let _ = parse(Path::new("r.bib"), &src[..i]);
         }
     }
+    #[test]
+    fn add_field_keeps_alignment() {
+        let e = "@article{k,\n  title  = {T},\n  author = {A},\n  year   = {2020}\n}";
+        assert_eq!(
+            add_field(e, "doi", "10.1/x").unwrap(),
+            "@article{k,\n  title  = {T},\n  author = {A},\n  year   = {2020},\n  doi    = {10.1/x}\n}"
+        );
+        let e = "@misc{k,\n    title = {T},\n}";
+        assert_eq!(
+            add_field(e, "doi", "10.1/x").unwrap(),
+            "@misc{k,\n    title = {T},\n    doi = {10.1/x}\n}"
+        );
+        assert_eq!(
+            add_field("@misc{k, title={T}}", "doi", "d").unwrap(),
+            "@misc{k, title={T},\n  doi = {d}\n}"
+        );
+    }
+}
+
+/// 在条目文本末尾补一个字段（条目中还没有该字段时）。沿用条目已有的缩进与 `=` 对齐方式，
+/// 只插入一行，其余内容不变。条目格式无法识别时返回 None。
+pub fn add_field(entry: &str, field: &str, value: &str) -> Option<String> {
+    let close = entry.trim_end().len().checked_sub(1)?;
+    if !matches!(entry.as_bytes().get(close), Some(b'}' | b')')) {
+        return None;
+    }
+    let body = &entry[..close];
+    let lines: Vec<&str> = body.lines().skip(1).filter(|l| l.contains('=')).collect();
+    // 缩进与 `=` 的列取自第一行字段
+    let indent: String = lines
+        .first()
+        .map(|l| l.chars().take_while(|c| c.is_whitespace()).collect())
+        .unwrap_or_else(|| "  ".into());
+    // 有字段名后跟多个空格再接 `=`，说明作者对齐了 `=`，新字段也对齐到同一列
+    let aligned = lines.iter().any(|l| l.trim_start().contains("  ="));
+    let width = if aligned {
+        lines
+            .first()
+            .and_then(|l| l.trim_start().find('='))
+            .map(|i| i.saturating_sub(1))
+            .unwrap_or(0)
+    } else {
+        0
+    };
+    let name = format!("{field:<width$}");
+    // 最后一个字段若没有结尾逗号，先补上
+    let trimmed = body.trim_end();
+    let comma = if trimmed.ends_with(',') { "" } else { "," };
+    let rest = &body[trimmed.len()..];
+    let newline = if rest.contains('\n') { "" } else { "\n" };
+    Some(format!(
+        "{trimmed}{comma}\n{indent}{name} = {{{value}}}{newline}{rest}{}",
+        &entry[close..]
+    ))
 }

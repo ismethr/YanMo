@@ -4584,6 +4584,8 @@ dependencies = [
  "once_cell",
  "rustls",
  "rustls-pki-types",
+ "serde",
+ "serde_json",
  "url",
  "webpki-roots 0.26.11",
 ]
@@ -5464,6 +5466,7 @@ name = "ym-bib"
 version = "0.2.0"
 dependencies = [
  "serde",
+ "serde_json",
  "thiserror 1.0.69",
  "ureq",
  "ym-model",

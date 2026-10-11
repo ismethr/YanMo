@@ -89,6 +89,20 @@ impl Workspace {
         Ok(self.index.as_ref().expect("just set"))
     }
 
+    /// 项目引用的全部文献条目；`keys` 非空时只取这些。
+    pub fn bib_entries(
+        &mut self,
+        keys: &[String],
+    ) -> Result<Vec<ym_model::BibEntry>, CommandError> {
+        let index = self.index()?;
+        let report = ym_check::run(index);
+        Ok(report
+            .bib
+            .into_iter()
+            .filter(|e| keys.is_empty() || keys.contains(&e.key))
+            .collect())
+    }
+
     /// 文件有改动，下次访问时重新索引。
     pub fn invalidate(&mut self) {
         self.index = None;

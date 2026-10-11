@@ -13,6 +13,11 @@ use ym_model::tr;
 
 pub use workspace::{CompileJob, ExportJob, Workspace};
 
+/// 联网核查文献（耗时较长，宿主可在不持有工作区锁时调用）。
+pub fn verify_bib(entries: &[ym_model::BibEntry]) -> serde_json::Value {
+    serde_json::json!({ "results": ym_bib::verify::verify_all(entries) })
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct CommandMeta {
     /// 约定 `<域>.<动作>`，例如 `project.open`、`check.run`

@@ -40,6 +40,20 @@ pub async fn execute(
             .await
             .map_err(|e| e.to_string())?;
         }
+        // 联网核查文献：只在取条目时持锁
+        "bib.verify" => {
+            let keys: Vec<String> = params
+                .get("keys")
+                .and_then(|k| serde_json::from_value(k.clone()).ok())
+                .unwrap_or_default();
+            let entries = {
+                let mut ws = state.workspace.lock().map_err(|e| e.to_string())?;
+                ws.bib_entries(&keys).map_err(|e| e.to_string())?
+            };
+            return tauri::async_runtime::spawn_blocking(move || ym_commands::verify_bib(&entries))
+                .await
+                .map_err(|e| e.to_string());
+        }
         _ => {}
     }
     let mut ws = state.workspace.lock().map_err(|e| e.to_string())?;

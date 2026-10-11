@@ -3,6 +3,7 @@
 import { cliPath, execute, pickFolder, revealInFolder } from './backend';
 import { setLang, tr, type Lang } from './i18n.svelte';
 import type {
+  BibVerification,
   CheckResult,
   CompileOutput,
   ExportOutput,
@@ -109,6 +110,8 @@ class AppState {
   notice = $state<{ text: string; action?: { label: string; run: () => void } } | null>(null);
   recent = $state<string[]>(loadRecent());
   moving = $state(false);
+  verifyingBib = $state(false);
+  bibVerify = $state<Record<string, BibVerification>>({});
 
   // 布局（按用户记住）
   layout = $state<Layout>(loadLayout());
@@ -215,6 +218,7 @@ class AppState {
     if (!target) return;
     try {
       this.project = await execute<ProjectInfo>('project.open', { path: target });
+      this.bibVerify = {};
     } catch (e) {
       this.flash(tr(`无法打开：${e}`, `Cannot open: ${e}`));
       return;
@@ -322,6 +326,41 @@ class AppState {
       this.flash(String(e).replace(/^Error:\s*/, ''));
     } finally {
       this.moving = false;
+    }
+  }
+
+  /** 联网核查全部文献（Crossref / doi.org / arXiv），结果按 key 保存 */
+  async verifyBib() {
+    if (this.verifyingBib) return;
+    this.verifyingBib = true;
+    try {
+      const { results } = await execute<{ results: BibVerification[] }>('bib.verify');
+      this.bibVerify = Object.fromEntries(results.map((r) => [r.key, r]));
+      const review = results.filter((r) => r.status === 'mismatch' || r.status === 'not_found').length;
+      this.flash(
+        review
+          ? tr(`已核查 ${results.length} 条文献，${review} 条需要人工核对`, `Checked ${results.length} references; ${review} need a look`)
+          : tr(`已核查 ${results.length} 条文献，未发现问题`, `Checked ${results.length} references; no problems found`),
+      );
+    } catch (e) {
+      this.flash(tr(`文献核查失败：${e}`, `Reference check failed: ${e}`));
+    } finally {
+      this.verifyingBib = false;
+    }
+  }
+
+  /** 把核查建议的 DOI 写入条目 */
+  async addDoi(key: string, doi: string) {
+    try {
+      await this.saveAll();
+      const r = await execute<{ file: string }>('bib.add_field', { key, field: 'doi', value: doi });
+      await this.reloadFile(r.file);
+      await this.refresh();
+      const v = this.bibVerify[key];
+      if (v) v.suggested_doi = null;
+      this.flash(tr(`已为 ${key} 补充 DOI`, `Added the DOI to ${key}`));
+    } catch (e) {
+      this.flash(String(e).replace(/^Error:\s*/, ''));
     }
   }
 

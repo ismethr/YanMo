@@ -140,3 +140,12 @@ export interface SourceLocation {
   file: string;
   line: number;
 }
+
+/** 文献核查结果（bib.verify） */
+export interface BibVerification {
+  key: string;
+  status: 'ok' | 'mismatch' | 'resolved' | 'not_found' | 'skipped' | 'error';
+  notes: string[];
+  found: { title: string; authors: string[]; year: number | null; venue: string | null; doi: string | null; source: string } | null;
+  suggested_doi: string | null;
+}

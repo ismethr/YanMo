@@ -77,11 +77,24 @@
   async function doImport() {
     if (await app.importBib(importId)) importId = '';
   }
-  let bibFilter = $state<'all' | 'unused'>('all');
+  let bibFilter = $state<'all' | 'unused' | 'review'>('all');
+  // 需要人工核对：信息不一致或没找到登记记录
+  const needsReview = (key: string) => ['mismatch', 'not_found'].includes(app.bibVerify[key]?.status ?? '');
+  let reviewCount = $derived((app.check?.bib ?? []).filter((e) => needsReview(e.key)).length);
+  let verified = $derived(Object.keys(app.bibVerify).length > 0);
+  const vmark: Record<string, { icon: string; cls: string }> = {
+    ok: { icon: '✓', cls: 'c-ok' },
+    resolved: { icon: '✓', cls: 'muted' },
+    mismatch: { icon: '!', cls: 'c-warn' },
+    not_found: { icon: '?', cls: 'muted' },
+    skipped: { icon: '–', cls: 'muted' },
+    error: { icon: '✕', cls: 'c-err' },
+  };
   let unusedCount = $derived((app.check?.bib ?? []).filter((e) => e.unused).length);
   let bib = $derived(
     (app.check?.bib ?? []).filter((e) => {
       if (bibFilter === 'unused' && !e.unused) return false;
+      if (bibFilter === 'review' && !needsReview(e.key)) return false;
       const q = bibQuery.trim().toLowerCase();
       return (
         !q ||
@@ -305,7 +318,15 @@
       <p class="empty">{tr('还没有 figure / table / 带 label 的公式。', 'No figures, tables or labeled equations yet.')}</p>
     {/each}
   {:else}
-    <div class="sec-h">{tr('文献库', 'Bibliography')}</div>
+    <div class="sec-h bib-h">
+      {tr('文献库', 'Bibliography')}
+      <button
+        class="sec-act"
+        disabled={app.verifyingBib || !app.check?.bib.length}
+        title={tr('到 Crossref / arXiv 核对每条文献是否存在、信息是否一致（会发送标题、作者、年份、DOI）', 'Check every reference against Crossref / arXiv (sends titles, authors, years and DOIs)')}
+        onclick={() => void app.verifyBib()}>{app.verifyingBib ? tr('核查中…', 'Checking…') : tr('核查', 'Verify')}</button
+      >
+    </div>
     <form class="import" onsubmit={(e) => { e.preventDefault(); void doImport(); }}>
       <label class="sr-only" for="bibimport">{tr('通过 DOI 或 arXiv 导入', 'Import by DOI or arXiv')}</label>
       <input id="bibimport" placeholder={tr('粘贴 DOI、arXiv 编号或链接', 'Paste a DOI, arXiv ID or link')} bind:value={importId} disabled={app.importingBib} />
@@ -317,6 +338,11 @@
       <div class="chips" role="group" aria-label={tr('筛选', 'Filter')}>
         <button class="chip" class:on={bibFilter === 'all'} onclick={() => (bibFilter = 'all')}>{tr('全部', 'All')} {app.check?.bib.length ?? 0}</button>
         <button class="chip" class:on={bibFilter === 'unused'} onclick={() => (bibFilter = 'unused')} disabled={!unusedCount}>{tr('未使用', 'Unused')} {unusedCount}</button>
+        {#if verified}
+          <button class="chip" class:on={bibFilter === 'review'} onclick={() => (bibFilter = 'review')} disabled={!reviewCount}
+            >{tr('需核对', 'Review')} {reviewCount}</button
+          >
+        {/if}
       </div>
     </div>
     {#each undefinedCites as u (u.key + String(u.line))}
@@ -326,9 +352,12 @@
       </button>
     {/each}
     {#each bib as e (e.span.file + e.key + e.span.start)}
+      {@const v = app.bibVerify[e.key]}
+      <div class="bibw">
       <button class="bibr" onclick={() => app.openFile(e.span.file, e.span.line)}>
         <span class="bk">
           <span class="mono key">{e.key}</span>
+          {#if v}<span class="vmark {vmark[v.status].cls}" title={v.notes.join('\n') || tr('已核对，信息一致', 'Checked; details match')}>{vmark[v.status].icon}</span>{/if}
           {#if e.citations.length}
             <span class="tag muted">{tr(`引用 ${e.citations.length}`, `cited ${e.citations.length}`)}</span>
           {:else if e.unused}
@@ -343,7 +372,12 @@
         </span>
         <span class="title">{tex(e.fields.title) || tr('（无标题）', '(untitled)')}</span>
         <span class="muted small">{[authors(e.fields.author), e.fields.year].filter(Boolean).join(' · ')}{e.fields.journal || e.fields.booktitle ? ` · ${tex(e.fields.journal ?? e.fields.booktitle)}` : ''}</span>
+        {#if v && v.status !== 'ok'}{#each v.notes as n (n)}<span class="small vnote {vmark[v.status].cls}">{n}</span>{/each}{/if}
       </button>
+      {#if v?.suggested_doi}
+        <button class="add-doi" onclick={() => void app.addDoi(e.key, v.suggested_doi!)}>{tr(`补充 DOI：${v.suggested_doi}`, `Add DOI: ${v.suggested_doi}`)}</button>
+      {/if}
+      </div>
     {:else}
       <p class="empty">{bibQuery ? tr('没有匹配的文献', 'No matching references') : tr('项目没有引用 .bib 文件', 'The project does not use a .bib file')}</p>
     {/each}
@@ -682,6 +716,43 @@
   .key {
     font-size: 12px;
     color: var(--tk-cite);
+  }
+  .bib-h {
+    display: flex;
+    align-items: center;
+  }
+  .sec-act {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--accent);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .sec-act:hover:not(:disabled) {
+    background: var(--hover);
+  }
+  .sec-act:disabled {
+    color: var(--fg3);
+  }
+  .vmark {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .vnote {
+    line-height: 1.4;
+  }
+  .add-doi {
+    margin: -4px 12px 8px;
+    font-size: 12px;
+    color: var(--accent);
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+  .add-doi:hover {
+    text-decoration: underline;
   }
   .tag {
     margin-left: auto;

@@ -9,4 +9,5 @@ license.workspace = true
 ym-model.workspace = true
 serde.workspace = true
 thiserror.workspace = true
-ureq = "2"
+ureq = { version = "2", features = ["json"] }
+serde_json.workspace = true
