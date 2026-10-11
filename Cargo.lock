@@ -5144,7 +5144,7 @@ dependencies = [
 
 [[package]]
 name = "yanmo-desktop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -5158,7 +5158,7 @@ dependencies = [
 
 [[package]]
 name = "ym-ai"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "keyring",
  "serde",
@@ -5170,7 +5170,7 @@ dependencies = [
 
 [[package]]
 name = "ym-bib"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "thiserror 1.0.69",
@@ -5180,7 +5180,7 @@ dependencies = [
 
 [[package]]
 name = "ym-check"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "ym-bib",
@@ -5190,7 +5190,7 @@ dependencies = [
 
 [[package]]
 name = "ym-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -5204,7 +5204,7 @@ dependencies = [
 
 [[package]]
 name = "ym-commands"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "serde",
@@ -5219,7 +5219,7 @@ dependencies = [
 
 [[package]]
 name = "ym-compile"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "flate2",
  "serde",
@@ -5230,7 +5230,7 @@ dependencies = [
 
 [[package]]
 name = "ym-latex"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "ym-model",
@@ -5238,7 +5238,7 @@ dependencies = [
 
 [[package]]
 name = "ym-mcp"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "serde_json",
@@ -5247,7 +5247,7 @@ dependencies = [
 
 [[package]]
 name = "ym-model"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "thiserror 1.0.69",
