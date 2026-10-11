@@ -127,6 +127,15 @@ function preview(id: string, params: Record<string, unknown>): unknown {
       return { tectonic: 'tectonic', latexmk: null, pandoc: 'pandoc', ghostscript: null };
     case 'project.set_main':
       return { ...info, main: path };
+    case 'zotero.search':
+      return {
+        items: [
+          { key: 'H326ZYKU', title: "Biochar's effect on crop productivity and the dependence on experimental conditions", authors: 'Liu et al.', year: '2013', item_type: 'journalArticle', doi: '10.1007/s11104-013-1806-x' },
+          { key: '268SU26B', title: '中国主粮作物生物炭产量效应的Meta分析', authors: '于滨杭 et al.', year: '2023', item_type: 'journalArticle', doi: null },
+        ].filter((i) => (i.title + i.authors + i.year).toLowerCase().includes(String(params.query).toLowerCase().split(' ')[0])),
+      };
+    case 'zotero.add':
+      return { added: [{ key: 'liu2013biochars', duplicate: false, file: 'refs.bib' }] };
     case 'bib.abstracts':
       return {
         works: (params.keys as string[])

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { app } from '../lib/store.svelte';
-  import type { Asset, TreeNode } from '../lib/types';
+  import type { Asset, TreeNode, ZoteroItem } from '../lib/types';
+  import { execute } from '../lib/backend';
   import Icon from './Icon.svelte';
   import Thumb from './Thumb.svelte';
   import { tr } from '../lib/i18n.svelte';
@@ -74,8 +75,38 @@
 
   let bibQuery = $state('');
   let importId = $state('');
+  // 导入框：DOI / arXiv 编号直接导入；其他文字在 Zotero 中搜索
+  const looksLikeId = (s: string) => /10\.\d{4,}\/|arxiv|^\s*\d{4}\.\d{4,5}(v\d+)?\s*$|^[a-z-]+\/\d{7}$/i.test(s);
+  let zotero = $state<{ items: ZoteroItem[]; error: string | null; loading: boolean } | null>(null);
+  let zTimer: ReturnType<typeof setTimeout> | undefined;
+  let zSeq = 0;
+  $effect(() => {
+    const q = importId.trim();
+    clearTimeout(zTimer);
+    if (q.length < 2 || looksLikeId(q)) {
+      zotero = null;
+      return;
+    }
+    zTimer = setTimeout(async () => {
+      const n = ++zSeq;
+      zotero = { items: zotero?.items ?? [], error: null, loading: true };
+      try {
+        const { items } = await execute<{ items: ZoteroItem[] }>('zotero.search', { query: q, limit: 8 });
+        if (n === zSeq) zotero = { items, error: null, loading: false };
+      } catch (e) {
+        if (n === zSeq) zotero = { items: [], error: String(e).replace(/^Error:\s*/, ''), loading: false };
+      }
+    }, 300);
+  });
   async function doImport() {
-    if (await app.importBib(importId)) importId = '';
+    if (looksLikeId(importId)) {
+      if (await app.importBib(importId)) importId = '';
+    } else if (zotero?.items.length === 1) {
+      if (await app.addFromZotero(zotero.items[0])) importId = '';
+    }
+  }
+  async function addZotero(item: ZoteroItem) {
+    if (await app.addFromZotero(item)) importId = '';
   }
   let bibFilter = $state<'all' | 'unused' | 'review'>('all');
   // 需要人工核对：信息不一致或没找到登记记录
@@ -328,10 +359,35 @@
       >
     </div>
     <form class="import" onsubmit={(e) => { e.preventDefault(); void doImport(); }}>
-      <label class="sr-only" for="bibimport">{tr('通过 DOI 或 arXiv 导入', 'Import by DOI or arXiv')}</label>
-      <input id="bibimport" placeholder={tr('粘贴 DOI、arXiv 编号或链接', 'Paste a DOI, arXiv ID or link')} bind:value={importId} disabled={app.importingBib} />
-      <button class="btn btn-pri" type="submit" disabled={!importId.trim() || app.importingBib}>{app.importingBib ? tr('导入中…', 'Importing…') : tr('导入', 'Import')}</button>
+      <label class="sr-only" for="bibimport">{tr('通过 DOI、arXiv 导入，或搜索 Zotero', 'Import by DOI or arXiv, or search Zotero')}</label>
+      <input
+        id="bibimport"
+        placeholder={tr('DOI、arXiv 编号，或搜索 Zotero', 'DOI, arXiv ID, or search Zotero')}
+        bind:value={importId}
+        disabled={app.importingBib}
+        onkeydown={(e) => e.key === 'Escape' && (importId = '')}
+      />
+      <button class="btn btn-pri" type="submit" disabled={!importId.trim() || app.importingBib || (!looksLikeId(importId) && zotero?.items.length !== 1)}
+        >{app.importingBib ? tr('导入中…', 'Importing…') : tr('导入', 'Import')}</button
+      >
     </form>
+    {#if zotero}
+      <div class="zotero" role="listbox" aria-label={tr('Zotero 搜索结果', 'Zotero results')}>
+        {#if zotero.error}
+          <p class="small c-warn zmsg">{zotero.error}</p>
+        {:else if zotero.loading && !zotero.items.length}
+          <p class="small muted zmsg">{tr('正在搜索 Zotero…', 'Searching Zotero…')}</p>
+        {:else if !zotero.items.length}
+          <p class="small muted zmsg">{tr('Zotero 中没有匹配的文献', 'No matches in Zotero')}</p>
+        {/if}
+        {#each zotero.items as z (z.key)}
+          <button class="zitem" role="option" aria-selected="false" disabled={app.importingBib} onclick={() => void addZotero(z)} title={tr('加入项目文献库', 'Add to the project bibliography')}>
+            <span class="title">{z.title || tr('（无标题）', '(untitled)')}</span>
+            <span class="muted small">{[z.authors, z.year].filter(Boolean).join(' · ')}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
     <div class="search">
       <label class="sr-only" for="bibq">{tr('搜索文献', 'Search references')}</label>
       <input id="bibq" placeholder={tr('搜索 key、标题或作者', 'Search key, title or author')} bind:value={bibQuery} />
@@ -676,6 +732,33 @@
   }
   .search {
     padding: 0 12px 8px;
+  }
+  .zotero {
+    margin: -4px 12px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .zmsg {
+    margin: 0;
+    padding: 8px 10px;
+  }
+  .zitem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 6px 10px;
+    text-align: left;
+    font-size: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .zitem:last-child {
+    border-bottom: 0;
+  }
+  .zitem:hover:not(:disabled) {
+    background: var(--hover);
   }
   .import {
     display: flex;

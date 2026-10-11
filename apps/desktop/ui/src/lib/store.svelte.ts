@@ -4,6 +4,7 @@ import { cliPath, execute, pickFolder, revealInFolder } from './backend';
 import { setLang, tr, type Lang } from './i18n.svelte';
 import type {
   BibVerification,
+  ZoteroItem,
   CheckResult,
   CompileOutput,
   ExportOutput,
@@ -605,6 +606,37 @@ class AppState {
       return true;
     } catch (e) {
       this.flash(String(e));
+      return false;
+    } finally {
+      this.importingBib = false;
+    }
+  }
+
+  /** 从 Zotero 加入文献库，成功后可一键插入 \cite */
+  async addFromZotero(item: ZoteroItem): Promise<boolean> {
+    if (this.importingBib) return false;
+    this.importingBib = true;
+    try {
+      const { added } = await execute<{ added: { key: string; duplicate: boolean; file: string; needs_bibliography?: boolean }[] }>(
+        'zotero.add',
+        { keys: [item.key] },
+      );
+      await this.refresh();
+      const a = added[0];
+      if (!a) {
+        this.flash(tr('Zotero 没有导出这条文献', 'Zotero did not export this item'));
+        return false;
+      }
+      const msg = a.duplicate
+        ? tr(`文献库中已有这篇（${a.key}）`, `Already in the bibliography (${a.key})`)
+        : tr(
+            `已从 Zotero 加入 ${a.key} → ${a.file}${a.needs_bibliography ? '；请在正文中用 \\bibliography 引入该文件' : ''}`,
+            `Added ${a.key} from Zotero → ${a.file}${a.needs_bibliography ? '; add this file to the paper with \\bibliography' : ''}`,
+          );
+      this.flash(msg, { label: tr(`插入 \\cite{${a.key}}`, `Insert \\cite{${a.key}}`), run: () => void this.insertAtCursor(`\\cite{${a.key}}`) });
+      return true;
+    } catch (e) {
+      this.flash(String(e).replace(/^Error:\s*/, ''));
       return false;
     } finally {
       this.importingBib = false;

@@ -29,6 +29,7 @@ claude mcp add yanmo -- /Applications/YanMo.app/Contents/MacOS/ym mcp -C /path/t
 | `outline_move` | 把章节（连同子节）移到同级章节之前或之后；章节各自成文件时调整 `\input` 顺序 | 是 |
 | `outline_extract` | 把章节拆成独立文件，原处换成 `\input`（编译结果不变） | 是 |
 | `bib_fetch` | 按 DOI / arXiv 查询 BibTeX（联网） | 否 |
+| `zotero_search` / `zotero_add` | 搜索本机 Zotero 文献库；把选中的条目加入项目 .bib（去掉附件路径、笔记、摘要，重新生成 key） | 后者是 |
 | `bib_verify` | 到 Crossref / doi.org / arXiv 核对文献是否存在、信息是否一致，并建议缺失的 DOI（联网） | 否 |
 | `bib_abstracts` | 获取被引文献的摘要（Semantic Scholar，备选 Crossref），用于判断引用是否支撑论述（联网） | 否 |
 | `bib_add_field` | 给条目补充缺少的字段（如 DOI），只插入一行 | 是 |

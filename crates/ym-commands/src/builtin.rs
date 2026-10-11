@@ -125,6 +125,29 @@ pub(crate) fn register(r: &mut Registry) {
     );
     r.register(
         meta(
+            "zotero.search",
+            ("搜索 Zotero", "Search Zotero"),
+            json!({"type": "object", "properties": {
+                "query": {"type": "string", "description": "Words from the title, an author or a year"},
+                "limit": {"type": "integer"}
+            }, "required": ["query"]}),
+            false,
+        ),
+        zotero_search,
+    );
+    r.register(
+        meta(
+            "zotero.add",
+            ("从 Zotero 加入文献库", "Add from Zotero"),
+            json!({"type": "object", "properties": {
+                "keys": {"type": "array", "items": {"type": "string"}, "description": "Zotero item keys from zotero_search"}
+            }, "required": ["keys"]}),
+            true,
+        ),
+        zotero_add,
+    );
+    r.register(
+        meta(
             "bib.abstracts",
             ("获取文献摘要", "Fetch Reference Abstracts"),
             json!({"type": "object", "properties": {
@@ -318,6 +341,8 @@ fn describe(id: &str) -> &'static str {
         "bib.verify" => "Look up each bibliography entry on Crossref (or arXiv) to confirm it exists and that its title, first author and year match the registered record; suggests DOIs for entries without one. Sends only bibliographic data (title, first author, year, DOI). Results: ok, mismatch, not_found, skipped, error.",
         "bib.add_field" => "Add a missing field (such as doi) to a bibliography entry. Inserts one line in the entry, keeping its indentation and alignment; fails if the field already exists.",
         "bib.abstracts" => "Fetch the abstracts of the given references from Semantic Scholar (by DOI, arXiv ID or title), falling back to Crossref. Useful for checking whether a citation supports a claim. Entries without an available abstract are returned with abstract = null.",
+        "zotero.search" => "Search the user's local Zotero library by title, author or year (requires Zotero running with its local API enabled). Returns Zotero item keys with title, authors, year, type and DOI.",
+        "zotero.add" => "Export the given Zotero items as BibTeX and append them to the project's .bib file, removing local file paths, personal notes and abstracts and generating citation keys. Reports duplicates instead of adding them twice. Returns the citation keys.",
         "file.read" => "Read a text file in the project.",
         "file.write" => "Overwrite a text file in the project.",
         _ => "",
@@ -689,6 +714,34 @@ fn bib_add_field(ws: &mut Workspace, p: Value) -> CommandResult {
     )?;
     ws.invalidate();
     Ok(json!({ "key": key, "file": entry.span.file }))
+}
+
+#[derive(Deserialize)]
+struct ZoteroQuery {
+    query: String,
+    limit: Option<u32>,
+}
+
+fn zotero_search(_: &mut Workspace, p: Value) -> CommandResult {
+    let ZoteroQuery { query, limit } = params(p)?;
+    let items = ym_bib::zotero::search(query.trim(), limit.unwrap_or(20).min(50))
+        .map_err(|e| CommandError::Failed(e.to_string()))?;
+    Ok(json!({ "items": items }))
+}
+
+/// 从 Zotero 导出条目并逐条加入文献库（查重、key 规则与 DOI 导入一致）
+fn zotero_add(ws: &mut Workspace, p: Value) -> CommandResult {
+    let KeysParam { keys } = params(p)?;
+    let entries = ym_bib::zotero::export(&keys).map_err(|e| CommandError::Failed(e.to_string()))?;
+    let mut added = Vec::new();
+    for e in &entries {
+        added.push(bib_add(
+            ws,
+            json!({ "bibtex": ym_bib::import::to_bibtex(e) }),
+        )?);
+        ws.invalidate();
+    }
+    Ok(json!({ "added": added }))
 }
 
 fn bib_abstracts(ws: &mut Workspace, p: Value) -> CommandResult {

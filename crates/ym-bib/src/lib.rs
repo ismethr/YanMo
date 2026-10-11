@@ -2,6 +2,7 @@
 
 pub mod import;
 pub mod verify;
+pub mod zotero;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -275,6 +276,17 @@ impl BibParser<'_> {
 }
 
 /// 生成引用 key：`<第一作者姓><年份><标题首个实词>`，如 `vaswani2017attention`。
+fn is_cjk(c: char) -> bool {
+    matches!(c as u32, 0x4E00..=0x9FFF | 0x3400..=0x4DBF)
+}
+
+fn pinyin_of(c: char) -> String {
+    use pinyin::ToPinyin;
+    c.to_pinyin()
+        .map(|p| p.plain().to_owned())
+        .unwrap_or_default()
+}
+
 pub fn make_key(entry: &BibEntry) -> String {
     const STOP: &[&str] = &[
         "a", "an", "the", "on", "of", "for", "in", "to", "and", "with",
@@ -288,11 +300,17 @@ pub fn make_key(entry: &BibEntry) -> String {
     let author = entry
         .field("author")
         .and_then(|a| a.split(" and ").next())
-        .map(|first| match first.split_once(',') {
-            Some((last, _)) => last,
-            None => first.split_whitespace().last().unwrap_or(""),
+        .map(|first| {
+            let first = first.trim().trim_matches(['{', '}']);
+            // 中文姓名：取姓的拼音（于滨杭 → yu）
+            if let Some(c) = first.chars().next().filter(|c| is_cjk(*c)) {
+                return pinyin_of(c);
+            }
+            ascii(match first.split_once(',') {
+                Some((last, _)) => last,
+                None => first.split_whitespace().last().unwrap_or(""),
+            })
         })
-        .map(ascii)
         .unwrap_or_default();
     let year = entry.field("year").map(ascii).unwrap_or_default();
     let word = entry
@@ -396,4 +414,19 @@ pub fn add_field(entry: &str, field: &str, value: &str) -> Option<String> {
         "{trimmed}{comma}\n{indent}{name} = {{{value}}}{newline}{rest}{}",
         &entry[close..]
     ))
+}
+
+#[cfg(test)]
+mod key_tests {
+    use super::*;
+
+    #[test]
+    fn chinese_first_author_uses_pinyin() {
+        let src = "@article{x,\n  title = {{中国主粮作物生物炭产量效应的Meta分析}},\n  author = {{于滨杭} and {姬建梅}},\n  year = {2023},\n}";
+        let e = parse(Path::new("a.bib"), src).entries.remove(0);
+        assert_eq!(make_key(&e), "yu2023meta");
+        let src = "@article{x,\n  title = {Biochar's effect on crop productivity},\n  author = {Liu, Xiaoyu and Zhang, Afeng},\n  year = {2013},\n}";
+        let e = parse(Path::new("a.bib"), src).entries.remove(0);
+        assert_eq!(make_key(&e), "liu2013biochars");
+    }
 }

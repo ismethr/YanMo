@@ -149,3 +149,13 @@ export interface BibVerification {
   found: { title: string; authors: string[]; year: number | null; venue: string | null; doi: string | null; source: string } | null;
   suggested_doi: string | null;
 }
+
+/** Zotero 文献库中的条目（zotero.search） */
+export interface ZoteroItem {
+  key: string;
+  title: string;
+  authors: string;
+  year: string | null;
+  item_type: string;
+  doi: string | null;
+}

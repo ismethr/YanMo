@@ -2,6 +2,12 @@
 
 ## 未发布
 
+### Zotero 集成
+- 文献库的导入框可直接搜索本机 Zotero（标题、作者、年份），点击结果即加入项目 .bib，可一键插入 `\cite`
+- 使用 Zotero 7 起自带的本地 API，不需要 Better BibTeX；需在 Zotero 设置 → 高级 中允许其他应用程序与 Zotero 通讯
+- 导出时去掉本机附件路径、个人笔记、摘要、关键词等字段，按研墨规则重新生成 key，并与已有条目查重
+- 中文第一作者的 key 使用姓的拼音（于滨杭 → `yu2023…`），DOI 导入同样适用
+
 ### 文献核查
 - AI 核查引用：选中含 `\cite` 的文字，在 AI 面板点"核查引用"，取被引文献的摘要（Semantic Scholar，备选 Crossref），逐条判断是否支撑论述并说明理由；没有摘要时注明仅按标题判断
 - 文献库新增"核查"：有 DOI 的条目经 doi.org 解析（Crossref、DataCite 等通用），没有 DOI 的到 Crossref 按标题、作者、年份查找，arXiv 条目查 arXiv

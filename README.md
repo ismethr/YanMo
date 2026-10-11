@@ -7,7 +7,7 @@
 An open-source, local-first desktop app for writing and compiling LaTeX papers, with AI built in. Its Chinese name, 研墨 (yán mò), means grinding ink before writing.
 
 - **Write and build in one place**: CodeMirror editor, built-in Tectonic compiler (no TeX install needed), PDF preview and two-way SyncTeX
-- **Structure at a glance**: an outline you can reorder by dragging, a figures and tables view, a searchable bibliography, and reference problems caught as you write
+- **Structure at a glance**: an outline you can reorder by dragging, a figures and tables view, a searchable bibliography with Zotero search and reference checks, and reference problems caught as you write
 - **AI you stay in charge of**: bring your own key (Claude, any OpenAI-compatible API or a local Ollama); every change is shown as a diff and applied only after you accept it
 - **Agent-friendly**: the app, the `ym` command line and the MCP server share one command registry, so Claude Code and other agents can read, check and compile your paper
 

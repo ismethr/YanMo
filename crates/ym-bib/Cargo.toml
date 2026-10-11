@@ -11,3 +11,4 @@ serde.workspace = true
 thiserror.workspace = true
 ureq = { version = "2", features = ["json"] }
 serde_json.workspace = true
+pinyin = "0.10"
