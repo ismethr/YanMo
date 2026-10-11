@@ -6,6 +6,7 @@
   import { updater } from './lib/updater.svelte';
   import { prefs } from './lib/prefs.svelte';
   import Settings from './components/Settings.svelte';
+  import NewProject from './components/NewProject.svelte';
   import TitleBar from './components/TitleBar.svelte';
   import ActivityBar from './components/ActivityBar.svelte';
   import Sidebar from './components/Sidebar.svelte';
@@ -120,6 +121,7 @@
   <StatusBar />
   {#if app.palette}<CommandPalette />{/if}
   {#if app.settingsOpen}<Settings />{/if}
+  {#if app.newProjectOpen}<NewProject />{/if}
   {#if dragging}
     <div class="dropzone" aria-hidden="true">
       <div>

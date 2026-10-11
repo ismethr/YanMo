@@ -127,6 +127,15 @@ function preview(id: string, params: Record<string, unknown>): unknown {
       return compilePdf;
     case 'compile.toolchain':
       return { tectonic: 'tectonic', latexmk: null, pandoc: 'pandoc', ghostscript: null };
+    case 'project.templates':
+      return [
+        { id: 'article-zh', name: '中文论文', name_en: 'Chinese article', description: 'ctexart，参考文献按 GB/T 7714 著录', description_en: 'ctexart with GB/T 7714 references' },
+        { id: 'article-en', name: '英文论文', name_en: 'Article', description: '通用的 article 文档类，natbib 引用', description_en: 'The standard article class with natbib' },
+        { id: 'elsarticle', name: 'Elsevier 期刊', name_en: 'Elsevier journal', description: 'elsarticle，作者-年份引用', description_en: 'elsarticle with author-year citations' },
+        { id: 'ieee', name: 'IEEE 会议', name_en: 'IEEE conference', description: 'IEEEtran 双栏会议格式', description_en: 'IEEEtran two-column conference format' },
+        { id: 'acm', name: 'ACM 会议', name_en: 'ACM conference', description: 'acmart sigconf', description_en: 'acmart sigconf' },
+        { id: 'llncs', name: 'Springer LNCS', name_en: 'Springer LNCS', description: 'Lecture Notes in Computer Science', description_en: 'Lecture Notes in Computer Science' },
+      ];
     case 'compile.cancel':
       return { cancelled: false };
     case 'compile.clean':

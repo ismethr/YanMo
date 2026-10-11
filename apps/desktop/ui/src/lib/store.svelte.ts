@@ -182,6 +182,8 @@ class AppState {
   #elapsedTimer: ReturnType<typeof setInterval> | undefined;
   /** 设置窗口 */
   settingsOpen = $state(false);
+  /** 从模板新建论文的对话框 */
+  newProjectOpen = $state(false);
   projectSettings = $state<ProjectSettings | null>(null);
   exporting = $state(false);
   /** 请求编辑器在光标处插入文本；n 递增以区分多次请求 */

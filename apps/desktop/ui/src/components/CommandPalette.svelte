@@ -18,6 +18,7 @@
   // 界面命令；后端命令注册表中的命令一并列出（只读展示，供 Agent / CLI 对照 ID）
   const uiItems: Item[] = $derived([
     { id: 'project.open', title: tr('打开文件夹…', 'Open Folder…'), key: '⌘O', run: () => app.openFolder() },
+    { id: 'project.create', title: tr('从模板新建论文…', 'New Paper from Template…'), run: () => (app.newProjectOpen = true) },
     { id: 'file.save', title: tr('保存当前文件', 'Save File'), key: '⌘S', run: () => app.saveActive() },
     { id: 'compile.run', title: tr('编译论文', 'Compile Paper'), key: '⌘B', run: () => app.compile() },
     { id: 'compile.cancel', title: tr('停止编译', 'Stop Compiling'), run: () => void app.cancelCompile() },

@@ -4,6 +4,7 @@
 //! 因此"用户能点的"与"Agent 能做的"天然一致，且都可被记录、撤销与测试。
 
 mod builtin;
+pub mod templates;
 mod workspace;
 
 use serde::Serialize;

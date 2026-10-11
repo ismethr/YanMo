@@ -249,6 +249,29 @@ pub(crate) fn register(r: &mut Registry) {
     );
     r.register(
         meta(
+            "project.templates",
+            ("论文模板", "Paper Templates"),
+            none.clone(),
+            false,
+        ),
+        project_templates,
+    );
+    r.register(
+        meta(
+            "project.create",
+            ("从模板新建论文", "New Paper from Template"),
+            json!({"type": "object", "properties": {
+                "template": {"type": "string", "description": "Template id from project_templates"},
+                "parent": {"type": "string", "description": "Absolute path of an existing folder to create the project in"},
+                "name": {"type": "string", "description": "Name of the new project folder"},
+                "title": {"type": "string", "description": "Paper title"}
+            }, "required": ["template", "parent", "name"]}),
+            true,
+        ),
+        project_create,
+    );
+    r.register(
+        meta(
             "project.settings",
             ("项目设置", "Project Settings"),
             none.clone(),
@@ -386,6 +409,8 @@ fn describe(id: &str) -> &'static str {
         "compile.clean" => "Delete the build directory (.yanmo/build/) so the next compile starts from scratch.",
         "project.settings" => "Project build settings from .yanmo/project.toml: engine (auto, tectonic, xelatex, pdflatex, lualatex), shell_escape and the main file.",
         "project.update_settings" => "Change the project's build settings (engine, shell_escape); saved in .yanmo/project.toml.",
+        "project.templates" => "List the paper templates (id, name, description) available for project_create.",
+        "project.create" => "Create a new paper project from a template in a new folder <parent>/<name>, with main.tex, a sections/ folder, refs.bib and figures/. Returns the new folder; open it with project_open.",
         "file.read" => "Read a text file in the project.",
         "file.write" => "Overwrite a text file in the project.",
         _ => "",
@@ -1129,6 +1154,88 @@ fn settings_json(ws: &Workspace) -> Value {
         "shell_escape": meta.shell_escape,
         "main": ws.main(),
     })
+}
+
+fn project_templates(_: &mut Workspace, _: Value) -> CommandResult {
+    to_value(&crate::templates::TEMPLATES)
+}
+
+#[derive(Deserialize)]
+struct CreateParam {
+    template: String,
+    parent: PathBuf,
+    name: String,
+    title: Option<String>,
+}
+
+/// 转义 LaTeX 特殊字符，用于把用户输入的标题写进模板
+fn latex_escape(s: &str) -> String {
+    let mut out = String::new();
+    for c in s.chars() {
+        match c {
+            '&' | '%' | '$' | '#' | '_' | '{' | '}' => {
+                out.push('\\');
+                out.push(c);
+            }
+            '~' => out.push_str("\\textasciitilde{}"),
+            '^' => out.push_str("\\textasciicircum{}"),
+            '\\' => out.push_str("\\textbackslash{}"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+fn project_create(_: &mut Workspace, p: Value) -> CommandResult {
+    let CreateParam {
+        template,
+        parent,
+        name,
+        title,
+    } = params(p)?;
+    let t = crate::templates::find(&template).ok_or_else(|| {
+        CommandError::InvalidParams(tr!(
+            "没有这个模板：{template}",
+            "No such template: {template}"
+        ))
+    })?;
+    let name = name.trim();
+    if name.is_empty() || name.contains(['/', '\\']) || name.starts_with('.') {
+        return Err(CommandError::InvalidParams(tr!(
+            "项目名称不能为空，也不能包含 / 或以 . 开头",
+            "The project name must not be empty, contain / or start with ."
+        )));
+    }
+    if !parent.is_absolute() || !parent.is_dir() {
+        return Err(CommandError::InvalidParams(tr!(
+            "不是文件夹：{p}",
+            "Not a folder: {p}",
+            p = parent.display()
+        )));
+    }
+    let dir = parent.join(name);
+    if dir.exists() {
+        return Err(CommandError::Failed(tr!(
+            "{p} 已存在，请换一个名称",
+            "{p} already exists; choose another name",
+            p = dir.display()
+        )));
+    }
+    let title = latex_escape(
+        title
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(name),
+    );
+    for (rel, text) in t.files {
+        let path = dir.join(rel);
+        if let Some(d) = path.parent() {
+            fs::create_dir_all(d)?;
+        }
+        fs::write(path, text.replace("{{title}}", &title))?;
+    }
+    Ok(json!({ "path": dir }))
 }
 
 fn project_settings(ws: &mut Workspace, _: Value) -> CommandResult {

@@ -22,7 +22,7 @@
       <section>
         <h2>{tr('开始', 'Start')}</h2>
         <button class="link" onclick={() => app.openFolder()}><Icon name="folder" />{tr('打开文件夹…', 'Open Folder…')}</button>
-        <span class="link off"><Icon name="files" />{tr('从模板新建论文（即将推出）', 'New Paper from Template (coming soon)')}</span>
+        <button class="link" onclick={() => (app.newProjectOpen = true)}><Icon name="files" />{tr('从模板新建论文…', 'New Paper from Template…')}</button>
       </section>
       <section>
         <h2>{tr('最近', 'Recent')}</h2>
@@ -91,12 +91,6 @@
   }
   .link:hover {
     text-decoration: underline;
-  }
-  .link.off {
-    color: var(--fg3);
-  }
-  .link.off:hover {
-    text-decoration: none;
   }
   .recent {
     gap: 14px;
