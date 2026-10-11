@@ -53,6 +53,14 @@ export async function cliPath(): Promise<string | null> {
   return inTauri ? invoke<string | null>('cli_path') : null;
 }
 
+/** 选择要导入的 zip（仅桌面端） */
+export async function pickZip(): Promise<string | null> {
+  if (!inTauri) return null;
+  const { open } = await import('@tauri-apps/plugin-dialog');
+  const picked = await open({ multiple: false, title: tr('选择 Overleaf 项目 zip', 'Choose an Overleaf project zip'), filters: [{ name: 'zip', extensions: ['zip'] }] });
+  return typeof picked === 'string' ? picked : null;
+}
+
 /** 弹出系统对话框选择论文文件夹；预览模式直接返回示例论文。 */
 export async function pickFolder(): Promise<string | null> {
   if (!inTauri) return fixtures().info.root;

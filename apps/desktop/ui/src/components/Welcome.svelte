@@ -23,6 +23,7 @@
         <h2>{tr('开始', 'Start')}</h2>
         <button class="link" onclick={() => app.openFolder()}><Icon name="folder" />{tr('打开文件夹…', 'Open Folder…')}</button>
         <button class="link" onclick={() => (app.newProjectOpen = true)}><Icon name="files" />{tr('从模板新建论文…', 'New Paper from Template…')}</button>
+        <button class="link" onclick={() => void app.importZip()}><Icon name="folder" />{tr('导入 Overleaf 项目（zip）…', 'Import Overleaf Project (zip)…')}</button>
       </section>
       <section>
         <h2>{tr('最近', 'Recent')}</h2>

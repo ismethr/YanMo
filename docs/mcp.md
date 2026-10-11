@@ -26,6 +26,7 @@ claude mcp add yanmo -- /Applications/YanMo.app/Contents/MacOS/ym mcp -C /path/t
 | `compile_toolchain` | 可用的编译引擎与工具 | 否 |
 | `project_info` / `project_tree` | 主文件、独立文档列表、文件树 | 否 |
 | `project_templates` / `project_create` | 列出论文模板；从模板新建论文项目 | 后者新建文件夹 |
+| `project_export_zip` / `project_import_zip` | 打包为可上传 Overleaf 的 zip；把 Overleaf 的 zip 解压为本地项目 | 写入 zip / 新建文件夹 |
 | `project_open` / `project_set_main` | 打开其他论文目录；切换主文件 | 后者写 `.yanmo/project.toml` |
 | `outline_move` | 把章节（连同子节）移到同级章节之前或之后；章节各自成文件时调整 `\input` 顺序 | 是 |
 | `outline_extract` | 把章节拆成独立文件，原处换成 `\input`（编译结果不变） | 是 |

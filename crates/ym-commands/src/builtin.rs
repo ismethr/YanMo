@@ -249,6 +249,30 @@ pub(crate) fn register(r: &mut Registry) {
     );
     r.register(
         meta(
+            "project.export_zip",
+            ("导出为 Overleaf 项目（zip）", "Export as Overleaf Project (zip)"),
+            json!({"type": "object", "properties": {
+                "output": {"type": "string", "description": "Relative to the project root; defaults to .yanmo/export/<project>.zip"}
+            }}),
+            false,
+        ),
+        project_export_zip,
+    );
+    r.register(
+        meta(
+            "project.import_zip",
+            ("导入 Overleaf 项目（zip）", "Import Overleaf Project (zip)"),
+            json!({"type": "object", "properties": {
+                "zip": {"type": "string", "description": "Absolute path of the zip file"},
+                "parent": {"type": "string", "description": "Absolute path of the folder to create the project in"},
+                "name": {"type": "string", "description": "Name of the new folder; defaults to the zip file name"}
+            }, "required": ["zip", "parent"]}),
+            true,
+        ),
+        project_import_zip,
+    );
+    r.register(
+        meta(
             "project.templates",
             ("论文模板", "Paper Templates"),
             none.clone(),
@@ -411,6 +435,8 @@ fn describe(id: &str) -> &'static str {
         "project.update_settings" => "Change the project's build settings (engine, shell_escape); saved in .yanmo/project.toml.",
         "project.templates" => "List the paper templates (id, name, description) available for project_create.",
         "project.create" => "Create a new paper project from a template in a new folder <parent>/<name>, with main.tex, a sections/ folder, refs.bib and figures/. Returns the new folder; open it with project_open.",
+        "project.export_zip" => "Package the project's source files as a zip that can be uploaded to Overleaf (New Project → Upload Project). Skips hidden folders such as .yanmo and .git, build files, Office documents, archives and PDFs compiled from a .tex of the same name (listed in omitted); too_large is true above Overleaf's 50 MB upload limit. Adds a latexmkrc so Overleaf uses XeLaTeX or LuaLaTeX when the paper needs it.",
+        "project.import_zip" => "Unpack a project zip downloaded from Overleaf into a new folder <parent>/<name> and return it; open it with project_open.",
         "file.read" => "Read a text file in the project.",
         "file.write" => "Overwrite a text file in the project.",
         _ => "",
@@ -1154,6 +1180,90 @@ fn settings_json(ws: &Workspace) -> Value {
         "shell_escape": meta.shell_escape,
         "main": ws.main(),
     })
+}
+
+#[derive(Deserialize, Default)]
+struct ExportZipParam {
+    output: Option<String>,
+}
+
+fn project_export_zip(ws: &mut Workspace, p: Value) -> CommandResult {
+    let ExportZipParam { output } = if p.is_null() {
+        ExportZipParam::default()
+    } else {
+        params(p)?
+    };
+    let root = ws.root()?.to_path_buf();
+    let name = root
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "paper".into());
+    let rel = output.unwrap_or_else(|| format!("{}/{name}.zip", ym_compile::EXPORT_DIR));
+    let out = ws.resolve(&rel)?;
+    let main_source = ws
+        .main()
+        .and_then(|m| fs::read_to_string(root.join(m)).ok())
+        .unwrap_or_default();
+    let rc = crate::overleaf::latexmkrc_for(ws.meta().engine, &main_source);
+    let r = crate::overleaf::export_zip(&root, &out, rc)?;
+    Ok(json!({
+        "path": rel,
+        "files": r.files,
+        "bytes": r.bytes,
+        "added_latexmkrc": r.added_latexmkrc,
+        "omitted": r.omitted,
+        // Overleaf 单次上传的上限
+        "too_large": r.bytes > 50 * 1024 * 1024,
+    }))
+}
+
+#[derive(Deserialize)]
+struct ImportZipParam {
+    zip: PathBuf,
+    parent: PathBuf,
+    name: Option<String>,
+}
+
+fn project_import_zip(_: &mut Workspace, p: Value) -> CommandResult {
+    let ImportZipParam { zip, parent, name } = params(p)?;
+    if !zip.is_file() {
+        return Err(CommandError::InvalidParams(tr!(
+            "找不到文件：{p}",
+            "File not found: {p}",
+            p = zip.display()
+        )));
+    }
+    if !parent.is_absolute() || !parent.is_dir() {
+        return Err(CommandError::InvalidParams(tr!(
+            "不是文件夹：{p}",
+            "Not a folder: {p}",
+            p = parent.display()
+        )));
+    }
+    let explicit = name
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .map(str::to_owned);
+    let name = explicit
+        .clone()
+        .or_else(|| zip.file_stem().map(|s| s.to_string_lossy().into_owned()))
+        .unwrap_or_else(|| "paper".into());
+    if name.contains(['/', '\\']) || name.starts_with('.') {
+        return Err(CommandError::InvalidParams(tr!(
+            "项目名称不能包含 / 或以 . 开头",
+            "The project name must not contain / or start with ."
+        )));
+    }
+    // 未指定名称且默认名称已被占用时，加数字后缀
+    let mut dest = parent.join(&name);
+    let mut n = 2;
+    while explicit.is_none() && dest.exists() {
+        dest = parent.join(format!("{name}-{n}"));
+        n += 1;
+    }
+    let files = crate::overleaf::import_zip(&zip, &dest)?;
+    Ok(json!({ "path": dest, "files": files }))
 }
 
 fn project_templates(_: &mut Workspace, _: Value) -> CommandResult {

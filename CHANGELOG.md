@@ -2,6 +2,11 @@
 
 ## 未发布
 
+### 与 Overleaf 互通
+- 导出为 Overleaf 项目（zip）：可直接在 Overleaf 用 New Project → Upload Project 上传；不含 .yanmo、.git 等隐藏目录、编译中间文件、Office 文档、压缩包和由同名 .tex 编译出的 PDF；超过 Overleaf 50 MB 上传限制时提示
+- 论文需要 XeLaTeX / LuaLaTeX（如 ctex）时自动加入 latexmkrc，让 Overleaf 用正确的引擎编译
+- 导入 Overleaf 项目（zip）：解压到 zip 所在目录的同名文件夹（重名时加数字）并打开；只有一个顶层目录时自动去掉，拒绝越出目标目录的路径
+
 ### 从模板新建论文
 - 欢迎页与命令面板新增"从模板新建论文"：中文论文（ctexart + GB/T 7714）、英文论文、Elsevier 期刊、IEEE 会议、ACM 会议、Springer LNCS
 - 模板按推荐结构组织（main.tex + sections/ 每节一个文件 + refs.bib + figures/），用内置 Tectonic 直接编译通过；标题中的 LaTeX 特殊字符自动转义

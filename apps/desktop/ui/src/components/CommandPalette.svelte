@@ -19,6 +19,8 @@
   const uiItems: Item[] = $derived([
     { id: 'project.open', title: tr('打开文件夹…', 'Open Folder…'), key: '⌘O', run: () => app.openFolder() },
     { id: 'project.create', title: tr('从模板新建论文…', 'New Paper from Template…'), run: () => (app.newProjectOpen = true) },
+    { id: 'project.import_zip', title: tr('导入 Overleaf 项目（zip）…', 'Import Overleaf Project (zip)…'), run: () => void app.importZip() },
+    { id: 'project.export_zip', title: tr('导出为 Overleaf 项目（zip）', 'Export as Overleaf Project (zip)'), run: () => void app.exportZip() },
     { id: 'file.save', title: tr('保存当前文件', 'Save File'), key: '⌘S', run: () => app.saveActive() },
     { id: 'compile.run', title: tr('编译论文', 'Compile Paper'), key: '⌘B', run: () => app.compile() },
     { id: 'compile.cancel', title: tr('停止编译', 'Stop Compiling'), run: () => void app.cancelCompile() },

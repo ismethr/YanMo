@@ -1,6 +1,6 @@
 // 应用状态（Svelte 5 runes）。所有对项目的读写都经由 backend.execute，即 Rust 命令注册表。
 
-import { cliPath, execute, pickFolder, revealInFolder } from './backend';
+import { cliPath, execute, pickFolder, pickZip, revealInFolder } from './backend';
 import { setLang, tr, type Lang } from './i18n.svelte';
 import { prefs, savePrefs } from './prefs.svelte';
 import type {
@@ -380,6 +380,44 @@ class AppState {
       const v = this.bibVerify[key];
       if (v) v.suggested_doi = null;
       this.flash(tr(`已为 ${key} 补充 DOI`, `Added the DOI to ${key}`));
+    } catch (e) {
+      this.flash(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
+  /** 打包为可上传到 Overleaf 的 zip */
+  async exportZip() {
+    if (!this.project) return;
+    try {
+      await this.saveAll();
+      const r = await execute<{ path: string; files: number; bytes: number; added_latexmkrc: boolean; too_large: boolean; omitted: { compiled_pdf: string[]; other: string[] } }>(
+        'project.export_zip',
+      );
+      const mb = (r.bytes / 1024 / 1024).toFixed(1);
+      const skipped = r.omitted.compiled_pdf.length + r.omitted.other.length;
+      const parts = [
+        tr(`已导出 ${r.path}（${r.files} 个文件，${mb} MB）`, `Exported ${r.path} (${r.files} files, ${mb} MB)`),
+        tr('在 Overleaf 选择 New Project → Upload Project 上传', 'Upload it in Overleaf with New Project → Upload Project'),
+      ];
+      if (skipped) parts.push(tr(`未包含 ${skipped} 个 Office 文档、压缩包或编译出的 PDF`, `left out ${skipped} Office documents, archives or compiled PDFs`));
+      if (r.added_latexmkrc) parts.push(tr('已加入 latexmkrc，让 Overleaf 用正确的引擎编译', 'added a latexmkrc so Overleaf uses the right engine'));
+      if (r.too_large) parts.push(tr('超过 Overleaf 单次上传 50 MB 的限制，请先删减大文件', 'over Overleaf’s 50 MB upload limit; remove large files first'));
+      const abs = `${this.project.root}/${r.path}`;
+      this.flash(parts.join(tr('；', '; ')), { label: tr('在访达中显示', 'Show in Folder'), run: () => void revealInFolder(abs) });
+    } catch (e) {
+      this.flash(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
+  /** 导入 Overleaf 下载的 zip：解压到 zip 所在目录的同名文件夹并打开 */
+  async importZip() {
+    const zip = await pickZip();
+    if (!zip) return;
+    const parent = zip.replace(/[\\/][^\\/]*$/, '');
+    try {
+      const r = await execute<{ path: string; files: number }>('project.import_zip', { zip, parent });
+      await this.openFolder(r.path);
+      this.flash(tr(`已导入 ${r.files} 个文件到 ${r.path}`, `Imported ${r.files} files into ${r.path}`));
     } catch (e) {
       this.flash(String(e).replace(/^Error:\s*/, ''));
     }

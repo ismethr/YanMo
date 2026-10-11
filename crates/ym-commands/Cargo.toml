@@ -10,6 +10,7 @@ ym-model.workspace = true
 ym-latex.workspace = true
 ym-check.workspace = true
 ym-bib.workspace = true
+zip = { version = "4", default-features = false, features = ["deflate"] }
 ym-compile.workspace = true
 base64 = "0.22"
 serde.workspace = true
