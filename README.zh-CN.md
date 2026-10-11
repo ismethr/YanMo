@@ -6,7 +6,7 @@
 
 开源、本地优先、AI 原生的 LaTeX 论文写作与编译桌面应用。
 
-- **写作闭环**：CodeMirror 编辑器 + 内置 Tectonic 编译（零配置）+ PDF 预览 + SyncTeX 双向跳转
+- **写作闭环**：期刊模板 + CodeMirror 编辑器 + 内置 Tectonic 编译（零配置）+ PDF 预览 + SyncTeX 双向跳转 + 草稿模式 + Overleaf 导入导出
 - **结构化管理**：可拖动调整顺序的论文大纲、图表资产库、文献库（可搜索 Zotero、核查文献），自动发现引用问题
 - **可控的 AI**：自带 API Key（Claude / OpenAI 兼容 / Ollama），每次修改都以 diff 呈现、经确认后应用
 - **对 Agent 友好**：统一命令注册表，CLI 与 MCP Server 和 UI 共用同一套命令
