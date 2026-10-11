@@ -16,7 +16,9 @@
 
 4. 流水线在 macOS（Apple 芯片 / Intel）、Windows、Linux 上构建安装包，上传到同名的 **GitHub Release 草稿**。
    在 Releases 页面检查各平台的安装包能否正常安装、打开、编译示例论文，然后点击 **Publish release**。
-   发布后它就成为 latest 版本，已安装的应用会通过其中的 `latest.json` 发现更新。不要删除 `.app.tar.gz` 与 `.sig` 文件，它们是自动更新用的。
+   发布后它就成为 latest 版本，已安装的应用会通过其中的 `latest.json` 发现更新。
+   `latest.json` 由流水线最后的 manifest 任务根据各平台的 `.sig` 统一生成（`scripts/updater-manifest.py`），
+   发布前可在草稿中确认它包含 darwin、linux、windows 各平台。不要删除 `.app.tar.gz` 与 `.sig` 文件，它们是自动更新用的。
 
 也可以在 Actions 页面手动运行 Release 工作流（workflow_dispatch），用于试构建。
 

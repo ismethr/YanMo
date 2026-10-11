@@ -108,12 +108,16 @@ ingress:
 
 ## 更新截图
 
-首页截图来自界面的演示模式（浏览器预览 + 示例论文）：
+首页截图来自界面的演示模式（浏览器预览 + 示例论文）。中文页用 `site/assets/app.jpg`（中文界面 + `examples/sample-paper`），
+英文页用 `site/assets/app-en.jpg`（英文界面 + `examples/sample-paper-en`），`?lang=` 指定界面语言：
 
 ```bash
 pnpm --dir apps/desktop/ui dev &
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
-  --force-device-scale-factor=2 --window-size=1440,860 --virtual-time-budget=4000 \
-  --screenshot=app.png "http://localhost:5173/?demo"
-sips -s format jpeg -s formatOptions 82 app.png --out site/assets/app.jpg
+for l in zh en; do
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --user-data-dir=/tmp/yanmo-shot-$l \
+    --hide-scrollbars --force-device-scale-factor=2 --window-size=1440,860 --virtual-time-budget=6000 \
+    --screenshot=app-$l.png "http://localhost:5173/?demo&lang=$l"
+done
+sips -s format jpeg -s formatOptions 82 app-zh.png --out site/assets/app.jpg
+sips -s format jpeg -s formatOptions 82 app-en.png --out site/assets/app-en.jpg
 ```

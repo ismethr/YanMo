@@ -9,6 +9,9 @@ export type Lang = 'zh' | 'en';
 const KEY = 'yanmo.lang';
 
 function initial(): Lang {
+  // ?lang=en / ?lang=zh：指定语言（用于截图与调试），不写入设置
+  const forced = new URLSearchParams(location.search).get('lang');
+  if (forced === 'zh' || forced === 'en') return forced;
   try {
     const saved = localStorage.getItem(KEY);
     if (saved === 'zh' || saved === 'en') return saved;

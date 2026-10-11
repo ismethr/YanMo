@@ -1,0 +1,82 @@
+{
+  "assets": [
+    {
+      "caption": "Overall architecture",
+      "files": [
+        "figures/arch.pdf"
+      ],
+      "kind": "figure",
+      "label": "fig:arch",
+      "paths": [
+        null
+      ],
+      "references": [],
+      "span": {
+        "end": 232,
+        "file": "sections/method.tex",
+        "line": 2,
+        "start": 35
+      }
+    },
+    {
+      "caption": null,
+      "files": [],
+      "kind": "equation",
+      "label": "sec:intro",
+      "paths": [],
+      "references": [],
+      "span": {
+        "end": 317,
+        "file": "sections/method.tex",
+        "line": 7,
+        "start": 233
+      }
+    }
+  ],
+  "files": [
+    "main.tex",
+    "sections/intro.tex",
+    "sections/method.tex"
+  ],
+  "front_words": 0,
+  "labels": [
+    "sec:intro",
+    "sec:method",
+    "fig:arch",
+    "sec:intro"
+  ],
+  "main": "main.tex",
+  "outline": [
+    {
+      "children": [],
+      "id": "sec:intro",
+      "label": "sec:intro",
+      "level": "section",
+      "numbered": true,
+      "span": {
+        "end": 22,
+        "file": "sections/intro.tex",
+        "line": 1,
+        "start": 0
+      },
+      "title": "Introduction",
+      "words": 15
+    },
+    {
+      "children": [],
+      "id": "sec:method",
+      "label": "sec:method",
+      "level": "section",
+      "numbered": true,
+      "span": {
+        "end": 16,
+        "file": "sections/method.tex",
+        "line": 1,
+        "start": 0
+      },
+      "title": "Method",
+      "words": 2
+    }
+  ],
+  "total_words": 17
+}

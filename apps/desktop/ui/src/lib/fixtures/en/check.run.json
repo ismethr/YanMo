@@ -3,10 +3,10 @@
     {
       "citations": [
         {
-          "end": 72,
+          "end": 79,
           "file": "sections/intro.tex",
           "line": 2,
-          "start": 52
+          "start": 59
         }
       ],
       "entry_type": "inproceedings",
@@ -47,10 +47,10 @@
   "issues": [
     {
       "at": {
-        "end": 170,
+        "end": 184,
         "file": "sections/intro.tex",
         "line": 3,
-        "start": 159
+        "start": 173
       },
       "code": "undefined_ref",
       "file": "sections/intro.tex",
@@ -61,10 +61,10 @@
     },
     {
       "at": {
-        "end": 225,
+        "end": 254,
         "file": "sections/intro.tex",
         "line": 4,
-        "start": 215
+        "start": 244
       },
       "code": "undefined_cite",
       "file": "sections/intro.tex",
@@ -90,16 +90,16 @@
     {
       "at": [
         {
-          "end": 32,
+          "end": 38,
           "file": "sections/intro.tex",
           "line": 1,
-          "start": 23
+          "start": 29
         },
         {
-          "end": 258,
+          "end": 265,
           "file": "sections/method.tex",
           "line": 7,
-          "start": 249
+          "start": 256
         }
       ],
       "code": "duplicate_label",
@@ -125,7 +125,7 @@
     },
     {
       "at": {
-        "end": 225,
+        "end": 232,
         "file": "sections/method.tex",
         "line": 2,
         "start": 35

@@ -1,7 +1,8 @@
 // 前端唯一的后端调用入口，与 Rust 侧 ym-commands 注册表一一对应。
 //
 // 在 Tauri 中运行时走 invoke；直接用浏览器打开 `pnpm dev` 时走预览模式，
-// 数据来自 examples/sample-paper 生成的 fixtures（见 scripts/gen-fixtures.sh），便于只改界面的贡献者。
+// 数据来自示例论文生成的 fixtures（见 scripts/gen-fixtures.sh），便于只改界面的贡献者：
+// 中文界面用 examples/sample-paper，英文界面用 examples/sample-paper-en。
 
 import { invoke } from '@tauri-apps/api/core';
 import type { CommandMeta } from './types';
@@ -9,9 +10,13 @@ import info from './fixtures/project.info.json';
 import tree from './fixtures/project.tree.json';
 import index from './fixtures/project.index.json';
 import check from './fixtures/check.run.json';
-import checkEn from './fixtures/check.run.en.json';
-import { i18n, tr } from './i18n.svelte';
 import files from './fixtures/files.json';
+import infoEn from './fixtures/en/project.info.json';
+import treeEn from './fixtures/en/project.tree.json';
+import indexEn from './fixtures/en/project.index.json';
+import checkEn from './fixtures/en/check.run.json';
+import filesEn from './fixtures/en/files.json';
+import { i18n, tr } from './i18n.svelte';
 import compileRun from './fixtures/compile.run.json';
 import compilePdf from './fixtures/compile.pdf.json';
 
@@ -50,15 +55,27 @@ export async function cliPath(): Promise<string | null> {
 
 /** 弹出系统对话框选择论文文件夹；预览模式直接返回示例论文。 */
 export async function pickFolder(): Promise<string | null> {
-  if (!inTauri) return info.root;
+  if (!inTauri) return fixtures().info.root;
   const { open } = await import('@tauri-apps/plugin-dialog');
   const picked = await open({ directory: true, multiple: false, title: tr('打开论文文件夹', 'Open Paper Folder') });
   return typeof picked === 'string' ? picked : null;
 }
 
-const previewFiles: Record<string, string> = { ...files };
-// 预览模式里的大纲可以被"移动章节"改动
-const previewIndex = structuredClone(index);
+// 预览模式的示例论文按首次使用时的界面语言选择；大纲与文件内容可以在内存中被修改
+let preview_: { info: typeof info; tree: typeof tree; index: typeof index; check: typeof check; files: Record<string, string> } | null = null;
+function fixtures() {
+  if (!preview_) {
+    const en = i18n.lang === 'en';
+    preview_ = {
+      info: en ? infoEn : info,
+      tree: en ? treeEn : tree,
+      index: structuredClone(en ? indexEn : index) as typeof index,
+      check: (en ? checkEn : check) as typeof check,
+      files: { ...(en ? filesEn : files) },
+    };
+  }
+  return preview_;
+}
 
 /** 预览模式的移动章节：只调整内存中大纲的顺序 */
 function previewMove(id: string, target: string, position: string): boolean {
@@ -74,11 +91,12 @@ function previewMove(id: string, target: string, position: string): boolean {
     }
     return list.some((s) => visit(s.children));
   };
-  return visit(previewIndex.outline as Node[]);
+  return visit(fixtures().index.outline as Node[]);
 }
 
 function preview(id: string, params: Record<string, unknown>): unknown {
   const path = params.path as string;
+  const { info, tree, index, check, files: previewFiles } = fixtures();
   switch (id) {
     case 'project.open':
     case 'project.info':
@@ -86,13 +104,13 @@ function preview(id: string, params: Record<string, unknown>): unknown {
     case 'project.tree':
       return tree;
     case 'project.index':
-      return previewIndex;
+      return index;
     case 'outline.move':
       if (!previewMove(params.id as string, params.target as string, params.position as string))
         throw new Error(tr('只能在同级章节之间移动', 'Sections can only be moved among sections of the same level'));
       return { file: 'main.tex', changed: true };
     case 'check.run':
-      return i18n.lang === 'en' ? checkEn : check;
+      return check;
     case 'app.set_lang':
       return { lang: params.lang };
     case 'file.read':

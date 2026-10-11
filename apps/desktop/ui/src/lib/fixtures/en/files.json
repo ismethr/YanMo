@@ -1,0 +1,6 @@
+{
+  "main.tex": "\\documentclass{article}\n\\usepackage{graphicx,amsmath}\n\\begin{document}\n\\input{sections/intro}\n\\input{sections/method}\n\\bibliographystyle{plain}\n\\bibliography{refs}\n\\end{document}\n",
+  "refs.bib": "@inproceedings{vaswani2017attention,\n  title     = {Attention Is All You Need},\n  author    = {Vaswani, Ashish and others},\n  booktitle = {NeurIPS},\n  year      = {2017}\n}\n\n@article{unused2020,\n  title  = {An Entry Nobody Cites},\n  author = {Doe, Jane},\n  year   = {2020}\n}\n",
+  "sections/intro.tex": "\\section{Introduction}\\label{sec:intro}\nTransformers~\\cite{vaswani2017attention} have reshaped sequence modeling.\nSection~\\ref{sec:method} describes our method; Figure~\\ref{fig:missing} shows the results. % [issue] undefined ref\nSee also~\\cite{nobody2099}. % [issue] undefined cite\n",
+  "sections/method.tex": "\\section{Method}\\label{sec:method}\n\\begin{figure}[t]\n  \\centering\n  \\includegraphics[width=.8\\linewidth]{figures/arch.pdf}% [issue] missing file\n  \\caption{Overall architecture}\\label{fig:arch}% [issue] never referenced\n\\end{figure}\n\\begin{equation}\\label{sec:intro}% [issue] duplicate label\n  y = f(x)\n\\end{equation}\n"
+}

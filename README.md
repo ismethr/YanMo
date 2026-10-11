@@ -1,52 +1,63 @@
-<p align="center"><img src="assets/brand/icon-1024.png" width="128" alt="YanMo 图标"></p>
+<p align="center"><img src="assets/brand/icon-1024.png" width="128" alt="YanMo icon"></p>
 
-# 研墨 YanMo
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
-开源、本地优先、AI 原生的 LaTeX 论文写作与编译桌面应用。
+# YanMo
 
-- **写作闭环**：CodeMirror 编辑器 + 内置 Tectonic 编译（零配置）+ PDF 预览 + SyncTeX 双向跳转
-- **结构化管理**：大纲与章节进度、图表资产库、文献库，自动发现引用问题
-- **可控的 AI**：自带 API Key（Claude / OpenAI 兼容 / Ollama），每次修改都以 diff 呈现、经确认后应用
-- **对 Agent 友好**：统一命令注册表，CLI 与 MCP Server 和 UI 共用同一套命令
+An open-source, local-first desktop app for writing and compiling LaTeX papers, with AI built in. Its Chinese name, 研墨 (yán mò), means grinding ink before writing.
 
-> 状态：预览版 v0.2。官网 [yanmo.ink](https://yanmo.ink)；路线图见 [docs/MVP.md](docs/MVP.md)，架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，更新见 [CHANGELOG](CHANGELOG.md)。
+- **Write and build in one place**: CodeMirror editor, built-in Tectonic compiler (no TeX install needed), PDF preview and two-way SyncTeX
+- **Structure at a glance**: an outline you can reorder by dragging, a figures and tables view, a searchable bibliography, and reference problems caught as you write
+- **AI you stay in charge of**: bring your own key (Claude, any OpenAI-compatible API or a local Ollama); every change is shown as a diff and applied only after you accept it
+- **Agent-friendly**: the app, the `ym` command line and the MCP server share one command registry, so Claude Code and other agents can read, check and compile your paper
 
-## 安装
+![The YanMo workspace: paper outline, LaTeX editor and problems panel](site/assets/app-en.jpg)
 
-从 [Releases](https://github.com/ismethr/YanMo/releases) 下载对应系统的安装包（macOS .dmg、Windows .exe / .msi、Linux .AppImage / .deb）。
-安装包已内置 Tectonic 编译引擎，不需要另外安装 TeX；导出 Word 需要另外安装 [Pandoc](https://pandoc.org/installing.html)。
+> Status: preview v0.2. Website: [yanmo.ink](https://yanmo.ink/en/). Changes: [CHANGELOG](CHANGELOG.md). Design notes ([roadmap](docs/MVP.md), [architecture](docs/ARCHITECTURE.md)) are in Chinese for now.
 
-macOS 首次打开如提示"无法验证开发者"：在"访达"中右键点击 YanMo 选择"打开"，或运行 `xattr -cr /Applications/YanMo.app`。
+## Install
 
-界面支持中文与英文，在状态栏右下角切换。
+Download the installer for your system from [Releases](https://github.com/ismethr/YanMo/releases) or [yanmo.ink](https://yanmo.ink/en/) (macOS .dmg, Windows .exe / .msi, Linux .AppImage / .deb / .rpm). From v0.2 on, YanMo tells you when an update is available and installs it in one click.
 
-## 接入 Claude Code 等 Agent
+The installers include the Tectonic engine, so there is no separate TeX distribution to install. Exporting to Word needs [Pandoc](https://pandoc.org/installing.html).
 
-安装包附带 `ym` 命令行，其中的 `ym mcp` 是 MCP Server：Agent 可以读取大纲、检查引用、编译并读取错误、导入文献。接入方法见 [docs/mcp.md](docs/mcp.md)。
+If macOS says the developer cannot be verified on first launch, right-click YanMo in Finder and choose Open, or run `xattr -cr /Applications/YanMo.app`.
 
-## 开发
+The interface is available in English and Chinese; switch from the status bar in the bottom-right corner.
 
-依赖：Rust stable、Node 22、pnpm（版本见 `apps/desktop/ui/package.json` 的 `packageManager`）；Linux 另需 webkit2gtk-4.1。
+## Connect Claude Code and other agents
+
+The app ships with the `ym` command line. `ym mcp` is an MCP server that lets agents read the outline, check references, compile and read errors, import references and reorder sections. In the app, press ⇧⌘P and run "Connect Claude Code or Other Agents" to copy the setup command, which looks like:
+
+```bash
+claude mcp add yanmo -- /Applications/YanMo.app/Contents/MacOS/ym mcp -C /path/to/paper
+```
+
+The full tool list is in [docs/mcp.md](docs/mcp.md) (in Chinese).
+
+## Development
+
+Requirements: Rust stable, Node 22, pnpm (version in `packageManager` of `apps/desktop/ui/package.json`); on Linux also webkit2gtk-4.1.
 
 ```bash
 pnpm --dir apps/desktop/ui install
 
-# 桌面应用（Tauri，会自动启动前端开发服务器）；需要先运行一次 sh scripts/fetch-tectonic.sh
+# Desktop app (Tauri; starts the frontend dev server too). Run sh scripts/fetch-tectonic.sh once first
 pnpm --dir apps/desktop/ui tauri dev
 
-# 只改界面：浏览器预览模式，使用 examples/sample-paper 的示例数据，无需编译 Rust
+# UI only: browser preview with sample data, no Rust build needed (add ?lang=en for the English UI and sample)
 pnpm --dir apps/desktop/ui dev
 
-# 测试与命令行
+# Tests and the command line
 cargo test --workspace
-cargo run -p ym-cli -- -C examples/sample-paper check
-cargo run -p ym-cli -- exec                      # 列出命令注册表中的所有命令
+cargo run -p ym-cli -- -C examples/sample-paper-en check
+cargo run -p ym-cli -- exec                      # list every command in the registry
 ```
 
-打包发布见 [docs/release.md](docs/release.md)。
+Packaging and releases: [docs/release.md](docs/release.md) (in Chinese).
 
-改动了 Rust 命令的返回结构后，运行 `pnpm --dir apps/desktop/ui fixtures` 重新生成预览模式的数据。
+After changing what a Rust command returns, run `pnpm --dir apps/desktop/ui fixtures` to regenerate the preview data.
 
-## 许可证
+## License
 
-可在 [MIT](LICENSE-MIT) 与 [Apache-2.0](LICENSE-APACHE) 之间任选其一。
+Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.

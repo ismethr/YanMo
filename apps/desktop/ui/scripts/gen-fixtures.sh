@@ -1,17 +1,18 @@
 #!/bin/sh
-# 用 examples/sample-paper 生成浏览器预览模式（不在 Tauri 中运行时）使用的假数据。
-# 数据来自真实的 ym 命令，保证与桌面端返回结构一致。
+# 用示例论文生成浏览器预览模式（不在 Tauri 中运行时）使用的假数据：
+# 中文界面用 examples/sample-paper，英文界面用 examples/sample-paper-en（放在 fixtures/en/）。
+# 数据来自真实的 ym 命令，保证与桌面端返回结构一致。编译结果（PDF）两种语言共用中文示例的。
 set -e
 cd "$(dirname "$0")/../../../.."
 OUT=apps/desktop/ui/src/lib/fixtures
-SAMPLE=examples/sample-paper
-mkdir -p "$OUT"
-for id in project.info project.tree project.index check.run compile.run compile.pdf; do
-  cargo run -q -p ym-cli -- -C "$SAMPLE" --lang zh exec "$id" > "$OUT/$id.json"
-done
-# 英文界面下的检查结果
-cargo run -q -p ym-cli -- -C "$SAMPLE" --lang en exec check.run > "$OUT/check.run.en.json"
-node -e '
+
+gen() { # gen <示例目录> <输出目录> <语言> <命令…>
+  sample=$1; out=$2; lang=$3; shift 3
+  mkdir -p "$out"
+  for id in "$@"; do
+    cargo run -q -p ym-cli -- -C "$sample" --lang "$lang" exec "$id" > "$out/$id.json"
+  done
+  node -e '
 const fs = require("fs"), path = require("path");
 const [out, sample] = process.argv.slice(1);
 // 不把本机绝对路径写进仓库
@@ -30,5 +31,10 @@ const walk = (rel) => {
 };
 walk("");
 fs.writeFileSync(path.join(out, "files.json"), JSON.stringify(files, null, 2) + "\n");
-' "$OUT" "$SAMPLE"
+' "$out" "$sample"
+}
+
+gen examples/sample-paper "$OUT" zh project.info project.tree project.index check.run compile.run compile.pdf
+gen examples/sample-paper-en "$OUT/en" en project.info project.tree project.index check.run
+rm -f "$OUT/check.run.en.json"
 echo "fixtures 已更新：$OUT"
