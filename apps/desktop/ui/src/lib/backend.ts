@@ -127,6 +127,8 @@ function preview(id: string, params: Record<string, unknown>): unknown {
       return { tectonic: 'tectonic', latexmk: null, pandoc: 'pandoc', ghostscript: null };
     case 'project.set_main':
       return { ...info, main: path };
+    case 'outline.extract':
+      throw new Error(tr('浏览器预览模式不支持拆分文件，请在桌面应用中使用', 'Moving a section to a file is not available in the browser preview; use the desktop app'));
     case 'export.docx':
       throw new Error(tr('浏览器预览模式不支持导出 Word，请在桌面应用中使用', 'Word export is not available in the browser preview; use the desktop app'));
     case 'bib.fetch':

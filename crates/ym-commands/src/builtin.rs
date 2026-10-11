@@ -203,6 +203,29 @@ pub(crate) fn register(r: &mut Registry) {
         outline_move,
     );
     r.register(
+        meta(
+            "outline.extract",
+            ("拆成独立文件", "Move Section to Its Own File"),
+            json!({"type": "object", "properties": {
+                "id": {"type": "string", "description": "Section id from project_index"}
+            }, "required": ["id"]}),
+            true,
+        ),
+        outline_extract,
+    );
+    r.register(
+        meta(
+            "outline.extract_undo",
+            ("撤销拆分", "Undo Moving Section to File"),
+            json!({"type": "object", "properties": {
+                "parent": {"type": "string"}, "file": {"type": "string"},
+                "parent_old": {"type": "string"}, "parent_new": {"type": "string"}, "text": {"type": "string"}
+            }, "required": ["parent", "file", "parent_old", "parent_new", "text"]}),
+            true,
+        ),
+        outline_extract_undo,
+    );
+    r.register(
         meta("file.read", ("读取文件", "Read File"), path_param, false),
         file_read,
     );
@@ -255,6 +278,8 @@ fn describe(id: &str) -> &'static str {
         "synctex.forward" => "Find where a source line appears in the compiled PDF (page and rectangle in PDF points).",
         "synctex.inverse" => "Find the source file and line for a point on a PDF page (PDF points, origin at the top left).",
         "outline.move" => "Move a section, with its subsections, before or after another section of the same level. Only one file is rewritten and the moved text is kept as is; when each section is its own file, the \\input lines are reordered instead. Fails if the move would need to split a file.",
+        "outline.extract" => "Move a section (with its subsections) into a new .tex file and put an \\input line in its place. The file goes into the folder the paper already uses for included files (sections/ by default) and is named after the section label or title. The compiled paper is unchanged.",
+        "outline.extract_undo" => "Undo outline.extract: restores the parent file and deletes the new file, only if neither has changed since.",
         "file.read" => "Read a text file in the project.",
         "file.write" => "Overwrite a text file in the project.",
         _ => "",
@@ -507,6 +532,72 @@ fn file_base64(ws: &mut Workspace, p: Value) -> CommandResult {
 #[derive(Deserialize)]
 struct IdParam {
     id: String,
+}
+
+#[derive(Deserialize)]
+struct SectionParam {
+    id: String,
+}
+
+/// 把章节拆成独立文件。返回撤销所需的内容。
+fn outline_extract(ws: &mut Workspace, p: Value) -> CommandResult {
+    let SectionParam { id } = params(p)?;
+    ws.invalidate();
+    let index = ws.index()?;
+    let plan = ym_latex::reorder::plan_extract(index, &id)
+        .map_err(|e| CommandError::Failed(e.to_string()))?;
+    let file = ws.resolve(&plan.file.to_string_lossy())?;
+    if file.exists() {
+        return Err(CommandError::Failed(tr!(
+            "文件已存在：{p}",
+            "File already exists: {p}",
+            p = plan.file.display()
+        )));
+    }
+    if let Some(dir) = file.parent() {
+        fs::create_dir_all(dir)?;
+    }
+    fs::write(&file, &plan.text)?;
+    fs::write(
+        ws.resolve(&plan.parent.to_string_lossy())?,
+        &plan.parent_new,
+    )?;
+    ws.invalidate();
+    Ok(json!({
+        "parent": plan.parent,
+        "file": plan.file,
+        "parent_old": plan.parent_old,
+        "parent_new": plan.parent_new,
+        "text": plan.text,
+    }))
+}
+
+#[derive(Deserialize)]
+struct ExtractUndo {
+    parent: String,
+    file: String,
+    parent_old: String,
+    parent_new: String,
+    text: String,
+}
+
+/// 撤销拆分：两个文件都与拆分后一致时才恢复，避免覆盖之后的修改。
+fn outline_extract_undo(ws: &mut Workspace, p: Value) -> CommandResult {
+    let u: ExtractUndo = params(p)?;
+    let parent = ws.resolve(&u.parent)?;
+    let file = ws.resolve(&u.file)?;
+    let unchanged = fs::read_to_string(&parent).ok().as_deref() == Some(u.parent_new.as_str())
+        && fs::read_to_string(&file).ok().as_deref() == Some(u.text.as_str());
+    if !unchanged {
+        return Err(CommandError::Failed(tr!(
+            "文件在拆分后已被修改，无法自动撤销",
+            "The files changed after the split, so it cannot be undone automatically"
+        )));
+    }
+    fs::write(&parent, &u.parent_old)?;
+    fs::remove_file(&file)?;
+    ws.invalidate();
+    Ok(json!({ "parent": u.parent }))
 }
 
 #[derive(Deserialize)]

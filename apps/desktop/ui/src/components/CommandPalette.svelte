@@ -52,6 +52,11 @@
       run: () => void app.copyMcpCommand(),
     },
     { id: 'view.toggle_ai', title: tr('切换 AI 面板', 'Toggle AI Panel'), key: '⌘I', run: () => (app.aiOpen = !app.aiOpen) },
+    {
+      id: 'outline.extract',
+      title: tr('把当前章节拆成独立文件', 'Move Current Section to Its Own File'),
+      run: () => (app.currentSectionId ? void app.extractSection(app.currentSectionId) : app.flash(tr('光标不在任何章节中', 'The cursor is not in a section'))),
+    },
     { id: 'app.update', title: tr('检查更新', 'Check for Updates'), run: () => void updater.check() },
     {
       id: 'app.set_lang',

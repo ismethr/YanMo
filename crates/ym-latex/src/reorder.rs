@@ -43,6 +43,8 @@ pub enum MoveError {
         "These sections are in different files; moving across files is not supported yet"
     ))]
     CrossFile,
+    #[error("{}", tr!("这一节已经是独立文件", "This section is already in its own file"))]
+    AlreadyOwnFile,
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
@@ -385,5 +387,108 @@ pub fn plan_move(
         file: from.file.clone(),
         old_text: old.to_owned(),
         new_text: rest,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractPlan {
+    /// 原来包含这一节的文件（相对项目根目录）
+    pub parent: PathBuf,
+    pub parent_old: String,
+    pub parent_new: String,
+    /// 新建的文件（相对项目根目录）
+    pub file: PathBuf,
+    pub text: String,
+}
+
+/// 由 label 或英文标题生成文件名；都不可用时用 `section-<n>`
+fn file_stem(sec: &Section, n: usize) -> String {
+    let from = |s: &str| {
+        let mut out = String::new();
+        for c in s.chars() {
+            if c.is_ascii_alphanumeric() {
+                out.push(c.to_ascii_lowercase());
+            } else if !out.ends_with('-') {
+                out.push('-');
+            }
+        }
+        out.trim_matches('-').to_owned()
+    };
+    // sec:intro → intro
+    let label = sec
+        .label
+        .as_deref()
+        .map(|l| from(l.rsplit(':').next().unwrap_or(l)))
+        .filter(|s| !s.is_empty());
+    let title = sec
+        .title
+        .is_ascii()
+        .then(|| from(&sec.title))
+        .filter(|s| !s.is_empty() && s.len() <= 40);
+    label.or(title).unwrap_or_else(|| format!("section-{n}"))
+}
+
+/// 新文件放在哪个目录：沿用主文件里已有的 `\input` 目录（取最常见的），否则用 `sections/`
+fn sections_dir(index: &ProjectIndex) -> PathBuf {
+    let mut counts: HashMap<PathBuf, usize> = HashMap::new();
+    for child in index.included_from.keys() {
+        if let Some(dir) = child.parent().filter(|d| !d.as_os_str().is_empty()) {
+            *counts.entry(dir.to_path_buf()).or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(&a.0)))
+        .map(|(d, _)| d)
+        .unwrap_or_else(|| index.base_dir().join("sections"))
+}
+
+/// 把章节（连同子节）拆到独立文件，原处换成 `\input`。
+pub fn plan_extract(index: &ProjectIndex, id: &str) -> Result<ExtractPlan, MoveError> {
+    let s = find(&index.outline, id).ok_or_else(|| MoveError::NotFound(id.to_owned()))?;
+    let doc = Doc::load(index)?;
+    let ranges = doc.ranges(s)?;
+    let (parent, a, b) = ranges.first().cloned().ok_or(MoveError::CrossFile)?;
+    if ranges.len() > 1 {
+        return Err(MoveError::AlreadyOwnFile);
+    }
+    let old = doc.text(&parent);
+    let a = line_start(old, a);
+    let b = line_start(old, b);
+    // 范围末尾的空行留在原文件，让 \input 与后面的内容仍然隔开
+    let body = old[a..b].trim_end_matches(['\n', ' ', '\t']);
+    let tail = &old[a + body.len()..b];
+    let keep = if tail.matches('\n').count() > 1 {
+        "\n"
+    } else {
+        ""
+    };
+    let body = format!("{body}\n");
+
+    let dir = sections_dir(index);
+    let n = index
+        .outline
+        .iter()
+        .position(|t| t.id == s.id)
+        .map(|i| i + 1)
+        .unwrap_or(1);
+    let stem = file_stem(s, n);
+    let mut file = dir.join(format!("{stem}.tex"));
+    let mut k = 2;
+    while index.root.join(&file).exists() {
+        file = dir.join(format!("{stem}-{k}.tex"));
+        k += 1;
+    }
+    // \input 的路径相对主文件所在目录，与 LaTeX 的查找方式一致
+    let base = index.base_dir();
+    let rel = file.strip_prefix(&base).unwrap_or(&file).with_extension("");
+    let input = format!("\\input{{{}}}\n", rel.to_string_lossy().replace('\\', "/"));
+    let parent_new = format!("{}{input}{keep}{}", &old[..a], &old[b..]);
+    Ok(ExtractPlan {
+        parent: parent.clone(),
+        parent_old: old.to_owned(),
+        parent_new,
+        file,
+        text: body,
     })
 }

@@ -287,6 +287,44 @@ class AppState {
     }
   }
 
+  /** 把章节拆成独立文件，原处换成 \input；可撤销。 */
+  async extractSection(id: string) {
+    if (this.moving) return;
+    const row = this.outlineRows.find((r) => r.id === id);
+    this.moving = true;
+    try {
+      await this.saveAll();
+      const r = await execute<{ parent: string; file: string; parent_old: string; parent_new: string; text: string }>(
+        'outline.extract',
+        { id },
+      );
+      await this.reloadFile(r.parent);
+      await this.refresh();
+      const title = row ? `${row.number ? `${row.number} ` : ''}${row.title}` : id;
+      this.flash(tr(`已把「${title}」拆到 ${r.file}`, `Moved “${title}” to ${r.file}`), {
+        label: tr('撤销', 'Undo'),
+        run: () =>
+          void (async () => {
+            try {
+              await this.saveAll();
+              await execute('outline.extract_undo', r);
+              // 先丢掉内容再关标签，避免关闭时把已删除的文件又保存回去
+              delete this.docs[r.file];
+              this.closeTab(r.file);
+              await this.reloadFile(r.parent);
+              await this.refresh();
+            } catch (e) {
+              this.flash(String(e).replace(/^Error:\s*/, ''));
+            }
+          })(),
+      });
+    } catch (e) {
+      this.flash(String(e).replace(/^Error:\s*/, ''));
+    } finally {
+      this.moving = false;
+    }
+  }
+
   /** 复制让 Claude Code 接入当前论文的命令（MCP）。 */
   async copyMcpCommand() {
     if (!this.project) return;

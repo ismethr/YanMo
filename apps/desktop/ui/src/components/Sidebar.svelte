@@ -106,6 +106,19 @@
 
   const fmt = (n: number) => n.toLocaleString();
 
+  // 大纲右键菜单
+  let menu = $state<{ x: number; y: number; id: string; file: string; line: number } | null>(null);
+  function openMenu(e: MouseEvent, r: { id: string; file: string; line: number }) {
+    e.preventDefault();
+    menu = { x: e.clientX, y: e.clientY, id: r.id, file: r.file, line: r.line };
+  }
+  /** 先取出菜单对应的章节再关闭菜单（关闭后 menu 为 null） */
+  function menuRun(f: (t: NonNullable<typeof menu>) => unknown) {
+    const t = menu;
+    menu = null;
+    if (t) void f(t);
+  }
+
   // 拖动章节调整顺序：只能放在同级章节之前或之后（用指针事件实现，避免与拖入图片冲突）
   let drag = $state<{ id: string; depth: number; parents: string; x: number; y: number; active: boolean } | null>(null);
   let drop = $state<{ id: string; position: 'before' | 'after' } | null>(null);
@@ -240,6 +253,7 @@
               class="otitle"
               title="{r.number} {r.title} · {fmt(r.total)} {app.wordUnit}{tr(' · 拖动可调整顺序', ' · drag to reorder')}"
               onpointerdown={(e) => dragStart(e, r)}
+              oncontextmenu={(e) => openMenu(e, r)}
               onclick={() => !suppressClick && app.openFile(r.file, r.line)}
             >
               {#if r.number}<span class="num">{r.number}</span>{/if}
@@ -335,6 +349,16 @@
     {/each}
   {/if}
 </aside>
+{#if menu}
+  <!-- 点击菜单外或按 Esc 关闭 -->
+  <div class="menu-mask" role="presentation" onpointerdown={() => (menu = null)} oncontextmenu={(e) => { e.preventDefault(); menu = null; }}></div>
+  <div class="menu" role="menu" tabindex="-1" style:left="{menu.x}px" style:top="{menu.y}px" onkeydown={(e) => e.key === 'Escape' && (menu = null)}>
+    <button role="menuitem" onclick={() => menuRun((t) => app.openFile(t.file, t.line))}>{tr('打开', 'Open')}</button>
+    <button role="menuitem" onclick={() => menuRun((t) => app.forwardSync(t.file, t.line))}>{tr('在 PDF 中定位', 'Show in PDF')}</button>
+    <button role="menuitem" onclick={() => menuRun((t) => app.extractSection(t.id))}>{tr('拆成独立文件', 'Move to Its Own File')}</button>
+  </div>
+{/if}
+
 <div class="resizer" role="separator" aria-orientation="vertical" aria-label={tr('调整侧栏宽度', 'Resize sidebar')} onpointerdown={startResize}></div>
 
 <style>
@@ -418,6 +442,32 @@
   }
   .orow.current {
     background: var(--active);
+  }
+  .menu-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+  }
+  .menu {
+    position: fixed;
+    z-index: 31;
+    min-width: 168px;
+    padding: 4px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    display: flex;
+    flex-direction: column;
+  }
+  .menu button {
+    text-align: left;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 13px;
+  }
+  .menu button:hover {
+    background: var(--hover);
   }
   .orow.dragging {
     opacity: 0.45;

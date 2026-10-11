@@ -331,3 +331,126 @@ fn every_sibling_move_in_real_paper() {
     let n = check_all_moves(&dir, &main);
     eprintln!("checked {n} moves");
 }
+
+use ym_latex::reorder::plan_extract;
+
+fn outline_signature(dir: &Path, main: &str) -> Vec<String> {
+    fn walk(list: &[ym_model::Section], depth: usize, out: &mut Vec<String>) {
+        for s in list {
+            out.push(format!(
+                "{depth}|{}|{}|{:?}|{}",
+                s.id, s.title, s.level, s.words
+            ));
+            walk(&s.children, depth + 1, out);
+        }
+    }
+    let index = index_project(dir, Path::new(main)).unwrap();
+    let mut out = vec![format!("front|{}", index.front_words)];
+    walk(&index.outline, 0, &mut out);
+    out
+}
+
+/// 把计划写进项目目录
+fn apply_extract(dir: &Path, p: &ym_latex::reorder::ExtractPlan) {
+    fs::write(dir.join(&p.parent), &p.parent_new).unwrap();
+    let f = dir.join(&p.file);
+    fs::create_dir_all(f.parent().unwrap()).unwrap();
+    fs::write(f, &p.text).unwrap();
+}
+
+#[test]
+fn extract_section_from_single_file() {
+    let dir = project("extract1", &[("main.tex", SINGLE)]);
+    let before = outline_signature(&dir, "main.tex");
+    let index = index_project(&dir, Path::new("main.tex")).unwrap();
+    let p = plan_extract(&index, "sec:b").unwrap();
+    assert_eq!(p.parent, Path::new("main.tex"));
+    assert_eq!(p.file, Path::new("sections/b.tex"));
+    assert_eq!(
+        p.text,
+        "\\section{B}\\label{sec:b}\nBeta text.\n\\subsection{B1}\\label{sec:b1}\nB one.\n\\subsection{B2}\\label{sec:b2}\nB two.\n"
+    );
+    assert!(p
+        .parent_new
+        .contains("Alpha text.\n\n\\input{sections/b}\n\n\\section{C}"));
+    apply_extract(&dir, &p);
+    assert_eq!(outline_signature(&dir, "main.tex"), before);
+
+    // 已经是独立文件的不能再拆
+    let index = index_project(&dir, Path::new("main.tex")).unwrap();
+    assert!(matches!(
+        plan_extract(&index, "sec:b"),
+        Err(MoveError::AlreadyOwnFile)
+    ));
+    // 拆出的子节放进同一个目录，文件名不冲突
+    let p = plan_extract(&index, "sec:b1").unwrap();
+    assert_eq!(p.parent, Path::new("sections/b.tex"));
+    assert_eq!(p.file, Path::new("sections/b1.tex"));
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn extract_names_without_label_or_ascii_title() {
+    let main = "\\documentclass{ctexart}\n\\begin{document}\n\\section{引言}\n甲。\n\\section{方法}\n乙。\n\\end{document}\n";
+    let dir = project(
+        "extract-cn",
+        &[("main.tex", main), ("sections/section-2.tex", "% 已存在\n")],
+    );
+    let index = index_project(&dir, Path::new("main.tex")).unwrap();
+    let id = index.outline[1].id.clone();
+    let p = plan_extract(&index, &id).unwrap();
+    assert_eq!(p.file, Path::new("sections/section-2-2.tex"));
+    assert!(p
+        .parent_new
+        .ends_with("甲。\n\\input{sections/section-2-2}\n\\end{document}\n"));
+    let _ = fs::remove_dir_all(dir);
+}
+
+/// 对每一节分别拆分：拆分后重新解析的大纲（层级、标题、字数）与拆分前完全一致
+fn check_all_extracts(dir: &Path, main: &str) -> usize {
+    let before = outline_signature(dir, main);
+    let index = index_project(dir, Path::new(main)).unwrap();
+    let mut ids = Vec::new();
+    fn collect(list: &[ym_model::Section], out: &mut Vec<String>) {
+        for s in list {
+            out.push(s.id.clone());
+            collect(&s.children, out);
+        }
+    }
+    collect(&index.outline, &mut ids);
+    let mut n = 0;
+    for id in ids {
+        let p = match plan_extract(&index, &id) {
+            Ok(p) => p,
+            Err(MoveError::AlreadyOwnFile | MoveError::CrossFile) => continue,
+            Err(e) => panic!("{id}: {e}"),
+        };
+        let copy = dir.with_extension("extracted");
+        let _ = fs::remove_dir_all(&copy);
+        copy_dir(dir, &copy);
+        apply_extract(&copy, &p);
+        assert_eq!(
+            outline_signature(&copy, main),
+            before,
+            "拆分 {id} 后大纲变了"
+        );
+        let _ = fs::remove_dir_all(&copy);
+        n += 1;
+    }
+    n
+}
+
+#[test]
+fn every_extract_keeps_outline() {
+    let dir = project("extract-all", &[("main.tex", SINGLE)]);
+    assert_eq!(check_all_extracts(&dir, "main.tex"), 5);
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+#[ignore = "需要指定论文目录"]
+fn every_extract_in_real_paper() {
+    let dir = PathBuf::from(std::env::var("YM_REORDER_DIR").unwrap());
+    let main = std::env::var("YM_REORDER_MAIN").unwrap();
+    eprintln!("checked {} extracts", check_all_extracts(&dir, &main));
+}
