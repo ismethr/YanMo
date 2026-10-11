@@ -2,8 +2,10 @@
 
 import { cliPath, execute, pickFolder, revealInFolder } from './backend';
 import { setLang, tr, type Lang } from './i18n.svelte';
+import { prefs, savePrefs } from './prefs.svelte';
 import type {
   BibVerification,
+  ProjectSettings,
   ZoteroItem,
   CheckResult,
   CompileOutput,
@@ -165,7 +167,22 @@ class AppState {
   pdf = $state<{ data: Uint8Array; rev: number } | null>(null);
   /** 正向同步的目标区域；n 递增以便重复定位 */
   syncTarget = $state<(PdfRect & { n: number }) | null>(null);
-  autoCompile = $state(true);
+  /** 保存后自动编译（记在偏好里） */
+  get autoCompile() {
+    return prefs.autoCompile;
+  }
+  set autoCompile(v: boolean) {
+    prefs.autoCompile = v;
+    savePrefs();
+  }
+  /** 本次编译开始的时间，用于显示已用时间 */
+  compileStartedAt = $state<number | null>(null);
+  /** 编译已用的秒数（编译期间每秒更新） */
+  compileElapsed = $state(0);
+  #elapsedTimer: ReturnType<typeof setInterval> | undefined;
+  /** 设置窗口 */
+  settingsOpen = $state(false);
+  projectSettings = $state<ProjectSettings | null>(null);
   exporting = $state(false);
   /** 请求编辑器在光标处插入文本；n 递增以区分多次请求 */
   insertRequest = $state<{ path: string; text: string; n: number } | null>(null);
@@ -220,6 +237,7 @@ class AppState {
     try {
       this.project = await execute<ProjectInfo>('project.open', { path: target });
       this.bibVerify = {};
+      void this.loadProjectSettings();
     } catch (e) {
       this.flash(tr(`无法打开：${e}`, `Cannot open: ${e}`));
       return;
@@ -434,7 +452,7 @@ class AppState {
     if (!doc) return;
     doc.text = text;
     clearTimeout(this.#timers.get(path));
-    this.#timers.set(path, setTimeout(() => void this.save(path), AUTOSAVE_MS));
+    if (prefs.autosave) this.#timers.set(path, setTimeout(() => void this.save(path), AUTOSAVE_MS));
   }
 
   async save(path: string) {
@@ -464,11 +482,18 @@ class AppState {
       return;
     }
     this.compiling = true;
+    this.compileStartedAt = Date.now();
+    this.compileElapsed = 0;
+    this.#elapsedTimer = setInterval(() => {
+      if (this.compileStartedAt) this.compileElapsed = Math.floor((Date.now() - this.compileStartedAt) / 1000);
+    }, 1000);
     try {
-      const out = await execute<CompileOutput>('compile.run');
+      const out = await execute<CompileOutput>('compile.run', prefs.compileTimeout > 0 ? { timeout_secs: prefs.compileTimeout } : {});
       this.lastCompile = out;
       if (out.pdf) await this.loadPdf();
-      if (!out.success) {
+      if (out.stopped) {
+        this.flash(out.diagnostics[0]?.message ?? tr('编译已停止', 'Compilation was stopped'));
+      } else if (!out.success) {
         const n = out.diagnostics.filter((d) => d.severity === 'error').length;
         this.flash(
           out.pdf
@@ -480,10 +505,72 @@ class AppState {
       this.flash(tr(`无法编译：${e}`, `Cannot compile: ${e}`));
     } finally {
       this.compiling = false;
+      this.compileStartedAt = null;
+      clearInterval(this.#elapsedTimer);
     }
     if (this.#compileAgain) {
       this.#compileAgain = false;
       void this.compile();
+    }
+  }
+
+  /** 停止正在进行的编译 */
+  async cancelCompile() {
+    this.#compileAgain = false;
+    await execute('compile.cancel').catch(() => {});
+  }
+
+  /** 删除编译缓存（.yanmo/build/），下次从头编译 */
+  async cleanBuild() {
+    if (this.compiling) await this.cancelCompile();
+    try {
+      await execute('compile.clean');
+      this.lastCompile = null;
+      this.pdf = null;
+      this.flash(tr('已清理编译缓存，下次编译会从头开始', 'Build files removed; the next compile starts from scratch'));
+    } catch (e) {
+      this.flash(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
+  /** 在编辑器中打开最近一次编译的完整日志 */
+  async openLog() {
+    const log = this.lastCompile?.log;
+    if (log) await this.openFile(log);
+    else this.flash(tr('还没有编译日志', 'No build log yet'));
+  }
+
+  /** 在访达 / 资源管理器中显示编译出的 PDF */
+  async revealPdf() {
+    const pdf = this.lastCompile?.pdf;
+    if (pdf && this.project) await revealInFolder(`${this.project.root}/${pdf}`);
+    else this.flash(tr('还没有 PDF，请先编译（⌘B）', 'No PDF yet. Compile first (⌘B)'));
+  }
+
+  async loadProjectSettings() {
+    if (!this.project) return;
+    try {
+      this.projectSettings = await execute<ProjectSettings>('project.settings');
+    } catch {
+      this.projectSettings = null;
+    }
+  }
+
+  /** 修改项目设置（编译引擎、shell-escape），保存到 .yanmo/project.toml */
+  async updateProjectSettings(change: Partial<Pick<ProjectSettings, 'engine' | 'shell_escape'>>) {
+    try {
+      this.projectSettings = await execute<ProjectSettings>('project.update_settings', change);
+    } catch (e) {
+      this.flash(String(e).replace(/^Error:\s*/, ''));
+    }
+  }
+
+  /** 重新检测编译工具（安装 TeX 发行版之后） */
+  async redetectToolchain() {
+    try {
+      this.toolchain = await execute<Toolchain>('compile.toolchain', { refresh: true });
+    } catch (e) {
+      this.flash(String(e));
     }
   }
 

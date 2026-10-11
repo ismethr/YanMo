@@ -1,13 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "主窗口权限：核心 API、打开文件夹对话框、在访达/资源管理器中显示导出文件",
+  "description": "主窗口权限：核心 API、打开文件夹对话框、在访达/资源管理器中显示导出文件、在浏览器中打开官网等链接",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
     "dialog:allow-open",
-    "opener:allow-reveal-item-in-dir"
+    "opener:allow-reveal-item-in-dir",
+    "opener:allow-open-url"
   ]
 }

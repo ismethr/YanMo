@@ -4,6 +4,8 @@
   import { inTauri, launchFolder } from './lib/backend';
   import { syncBackendLang, tr } from './lib/i18n.svelte';
   import { updater } from './lib/updater.svelte';
+  import { prefs } from './lib/prefs.svelte';
+  import Settings from './components/Settings.svelte';
   import TitleBar from './components/TitleBar.svelte';
   import ActivityBar from './components/ActivityBar.svelte';
   import Sidebar from './components/Sidebar.svelte';
@@ -64,11 +66,19 @@
     }
   });
 
+  // 编辑器字号
+  $effect(() => {
+    document.documentElement.style.setProperty('--editor-font-size', `${prefs.fontSize}px`);
+  });
+
   function onKey(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;
     if (!mod) return;
     const k = e.key.toLowerCase();
-    if (k === 's') {
+    if (k === ',') {
+      e.preventDefault();
+      app.settingsOpen = true;
+    } else if (k === 's') {
       e.preventDefault();
       void app.saveActive();
     } else if (k === 'p' && e.shiftKey) {
@@ -109,6 +119,7 @@
   {/if}
   <StatusBar />
   {#if app.palette}<CommandPalette />{/if}
+  {#if app.settingsOpen}<Settings />{/if}
   {#if dragging}
     <div class="dropzone" aria-hidden="true">
       <div>

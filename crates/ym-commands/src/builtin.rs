@@ -206,7 +206,7 @@ pub(crate) fn register(r: &mut Registry) {
         meta(
             "compile.run",
             ("编译论文", "Compile Paper"),
-            json!({"type": "object", "properties": {"engine": {"enum": ["tectonic", "xelatex", "pdflatex", "lualatex"]}}}),
+            json!({"type": "object", "properties": {"engine": {"enum": ["tectonic", "xelatex", "pdflatex", "lualatex"]}, "timeout_secs": {"type": "integer"}}}),
             false,
         ),
         compile_run,
@@ -224,10 +224,49 @@ pub(crate) fn register(r: &mut Registry) {
         meta(
             "compile.toolchain",
             ("可用的编译引擎", "Available TeX Engines"),
-            none,
+            json!({"type": "object", "properties": {"refresh": {"type": "boolean", "description": "Detect again (after installing a TeX distribution)"}}}),
             false,
         ),
         compile_toolchain,
+    );
+    r.register(
+        meta(
+            "compile.cancel",
+            ("停止编译", "Stop Compiling"),
+            none.clone(),
+            false,
+        ),
+        compile_cancel,
+    );
+    r.register(
+        meta(
+            "compile.clean",
+            ("清理编译缓存", "Clean Build Files"),
+            none.clone(),
+            false,
+        ),
+        compile_clean,
+    );
+    r.register(
+        meta(
+            "project.settings",
+            ("项目设置", "Project Settings"),
+            none.clone(),
+            false,
+        ),
+        project_settings,
+    );
+    r.register(
+        meta(
+            "project.update_settings",
+            ("修改项目设置", "Change Project Settings"),
+            json!({"type": "object", "properties": {
+                "engine": {"enum": ["auto", "tectonic", "xelatex", "pdflatex", "lualatex"]},
+                "shell_escape": {"type": "boolean"}
+            }}),
+            false,
+        ),
+        project_update_settings,
     );
     r.register(
         meta(
@@ -330,7 +369,7 @@ fn describe(id: &str) -> &'static str {
         "bib.import" => "Fetch a DOI or arXiv ID online and append the entry to the project's .bib file. Returns the citation key to use with \\cite.",
         "asset.import" => "Copy an image into the project's figures folder and return the path and a suggested label for \\includegraphics. Accepts PNG, JPG, PDF and EPS.",
         "check.run" => "Check the whole paper for problems: undefined \\ref and \\cite, duplicate labels and bibliography keys, missing image files, bib syntax errors, figures and references that are never cited. Returns issues with file and line, plus the parsed bibliography.",
-        "compile.run" => "Compile the paper to PDF (Tectonic by default, or latexmk with xelatex / pdflatex / lualatex). Returns success, the PDF path, and errors and warnings with file and line. The first Tectonic build downloads packages and can take minutes.",
+        "compile.run" => "Compile the paper to PDF with the project's engine (Tectonic by default, or latexmk with xelatex / pdflatex / lualatex). Returns success, the PDF path, the log path, and errors and warnings with file and line. The first Tectonic build downloads packages and can take minutes. Optional timeout_secs stops a build that runs too long.",
         "compile.pdf" => "Read the last compiled PDF as base64.",
         "compile.toolchain" => "Which TeX engines and helper tools (Tectonic, latexmk, Pandoc, Ghostscript) are available.",
         "synctex.forward" => "Find where a source line appears in the compiled PDF (page and rectangle in PDF points).",
@@ -343,6 +382,10 @@ fn describe(id: &str) -> &'static str {
         "bib.abstracts" => "Fetch the abstracts of the given references from Semantic Scholar (by DOI, arXiv ID or title), falling back to Crossref. Useful for checking whether a citation supports a claim. Entries without an available abstract are returned with abstract = null.",
         "zotero.search" => "Search the user's local Zotero library by title, author or year (requires Zotero running with its local API enabled). Returns Zotero item keys with title, authors, year, type and DOI.",
         "zotero.add" => "Export the given Zotero items as BibTeX and append them to the project's .bib file, removing local file paths, personal notes and abstracts and generating citation keys. Reports duplicates instead of adding them twice. Returns the citation keys.",
+        "compile.cancel" => "Stop the compilation that is currently running.",
+        "compile.clean" => "Delete the build directory (.yanmo/build/) so the next compile starts from scratch.",
+        "project.settings" => "Project build settings from .yanmo/project.toml: engine (auto, tectonic, xelatex, pdflatex, lualatex), shell_escape and the main file.",
+        "project.update_settings" => "Change the project's build settings (engine, shell_escape); saved in .yanmo/project.toml.",
         "file.read" => "Read a text file in the project.",
         "file.write" => "Overwrite a text file in the project.",
         _ => "",
@@ -1042,18 +1085,79 @@ fn file_write(ws: &mut Workspace, p: Value) -> CommandResult {
 #[derive(Deserialize, Default)]
 struct CompileParam {
     engine: Option<ym_model::Engine>,
+    /// 超时（秒）
+    timeout_secs: Option<u64>,
 }
 
 fn compile_run(ws: &mut Workspace, p: Value) -> CommandResult {
-    let CompileParam { engine } = if p.is_null() {
+    let CompileParam {
+        engine,
+        timeout_secs,
+    } = if p.is_null() {
         CompileParam::default()
     } else {
         params(p)?
     };
-    let job = ws.compile_job(engine)?;
+    let job = ws.compile_job(engine, timeout_secs.map(std::time::Duration::from_secs))?;
     let out = job.run()?;
     ws.finish_compile(out.clone());
     to_value(&out)
+}
+
+fn compile_cancel(ws: &mut Workspace, _: Value) -> CommandResult {
+    Ok(json!({ "cancelled": ws.cancel_compile() }))
+}
+
+fn compile_clean(ws: &mut Workspace, _: Value) -> CommandResult {
+    let root = ws.root()?.to_path_buf();
+    ym_compile::clean(&root)?;
+    ws.finish_compile_cleared();
+    Ok(json!({ "cleaned": ym_compile::BUILD_DIR }))
+}
+
+#[derive(Deserialize, Default)]
+struct SettingsParam {
+    /// "auto" 表示自动选择
+    engine: Option<String>,
+    shell_escape: Option<bool>,
+}
+
+fn settings_json(ws: &Workspace) -> Value {
+    let meta = ws.meta();
+    json!({
+        "engine": meta.engine.map(|e| serde_json::to_value(e).unwrap_or(Value::Null)).unwrap_or(json!("auto")),
+        "shell_escape": meta.shell_escape,
+        "main": ws.main(),
+    })
+}
+
+fn project_settings(ws: &mut Workspace, _: Value) -> CommandResult {
+    ws.root()?;
+    Ok(settings_json(ws))
+}
+
+fn project_update_settings(ws: &mut Workspace, p: Value) -> CommandResult {
+    let SettingsParam {
+        engine,
+        shell_escape,
+    } = params(p)?;
+    let engine = match engine.as_deref() {
+        None => None,
+        Some("auto") => Some(None),
+        Some(e) => Some(Some(
+            serde_json::from_value::<ym_model::Engine>(json!(e))
+                .map_err(|err| CommandError::InvalidParams(err.to_string()))?,
+        )),
+    };
+    ws.update_meta(|m| {
+        if let Some(e) = engine {
+            m.engine = e;
+        }
+        if let Some(s) = shell_escape {
+            m.shell_escape = s;
+        }
+    })?;
+    Ok(settings_json(ws))
 }
 
 #[derive(Deserialize, Default)]
@@ -1080,8 +1184,23 @@ fn compile_pdf(ws: &mut Workspace, _: Value) -> CommandResult {
     Ok(json!({ "path": rel, "base64": base64::engine::general_purpose::STANDARD.encode(bytes) }))
 }
 
-fn compile_toolchain(ws: &mut Workspace, _: Value) -> CommandResult {
-    to_value(ws.toolchain())
+#[derive(Deserialize, Default)]
+struct ToolchainParam {
+    #[serde(default)]
+    refresh: bool,
+}
+
+fn compile_toolchain(ws: &mut Workspace, p: Value) -> CommandResult {
+    let ToolchainParam { refresh } = if p.is_null() {
+        ToolchainParam::default()
+    } else {
+        params(p)?
+    };
+    if refresh {
+        to_value(ws.redetect_toolchain())
+    } else {
+        to_value(ws.toolchain())
+    }
 }
 
 #[derive(Deserialize)]

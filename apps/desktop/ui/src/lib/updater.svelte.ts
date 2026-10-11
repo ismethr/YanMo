@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { inTauri } from './backend';
 import { tr } from './i18n.svelte';
 import { app } from './store.svelte';
+import { prefs } from './prefs.svelte';
 
 const LAST_CHECK_KEY = 'yanmo.update.lastCheck';
 const DAY = 24 * 60 * 60 * 1000;
@@ -22,7 +23,7 @@ class UpdaterState {
 
   /** 启动后调用：距上次检查不足一天则跳过 */
   async autoCheck() {
-    if (!inTauri) return;
+    if (!inTauri || !prefs.checkUpdates) return;
     try {
       const last = Number(localStorage.getItem(LAST_CHECK_KEY) ?? 0);
       if (Date.now() - last < DAY) return;

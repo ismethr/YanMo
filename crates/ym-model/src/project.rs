@@ -24,6 +24,9 @@ pub struct ProjectMeta {
     /// 编译引擎；未设置时自动选择
     #[serde(skip_serializing_if = "Option::is_none")]
     pub engine: Option<Engine>,
+    /// 允许 shell-escape（minted、svg 等宏包需要；会让 TeX 执行外部命令）
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shell_escape: bool,
     /// 章节状态，key 为章节稳定 ID（见 `Section::id`）
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]

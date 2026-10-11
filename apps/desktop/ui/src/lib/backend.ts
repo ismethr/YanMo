@@ -61,6 +61,8 @@ export async function pickFolder(): Promise<string | null> {
   return typeof picked === 'string' ? picked : null;
 }
 
+const previewSettings = { engine: 'auto', shell_escape: false, main: 'main.tex' };
+
 // 预览模式的示例论文按首次使用时的界面语言选择；大纲与文件内容可以在内存中被修改
 let preview_: { info: typeof info; tree: typeof tree; index: typeof index; check: typeof check; files: Record<string, string> } | null = null;
 function fixtures() {
@@ -125,6 +127,15 @@ function preview(id: string, params: Record<string, unknown>): unknown {
       return compilePdf;
     case 'compile.toolchain':
       return { tectonic: 'tectonic', latexmk: null, pandoc: 'pandoc', ghostscript: null };
+    case 'compile.cancel':
+      return { cancelled: false };
+    case 'compile.clean':
+      return { cleaned: '.yanmo/build' };
+    case 'project.settings':
+      return previewSettings;
+    case 'project.update_settings':
+      Object.assign(previewSettings, params);
+      return previewSettings;
     case 'project.set_main':
       return { ...info, main: path };
     case 'zotero.search':

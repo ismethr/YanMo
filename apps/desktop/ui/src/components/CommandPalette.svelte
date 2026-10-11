@@ -20,6 +20,11 @@
     { id: 'project.open', title: tr('打开文件夹…', 'Open Folder…'), key: '⌘O', run: () => app.openFolder() },
     { id: 'file.save', title: tr('保存当前文件', 'Save File'), key: '⌘S', run: () => app.saveActive() },
     { id: 'compile.run', title: tr('编译论文', 'Compile Paper'), key: '⌘B', run: () => app.compile() },
+    { id: 'compile.cancel', title: tr('停止编译', 'Stop Compiling'), run: () => void app.cancelCompile() },
+    { id: 'compile.clean', title: tr('清理编译缓存', 'Clean Build Files'), run: () => void app.cleanBuild() },
+    { id: 'compile.log', title: tr('打开完整编译日志', 'Open Full Build Log'), run: () => void app.openLog() },
+    { id: 'compile.reveal', title: tr('在访达中显示 PDF', 'Show PDF in Folder'), run: () => void app.revealPdf() },
+    { id: 'app.settings', title: tr('设置…', 'Settings…'), key: '⌘,', run: () => (app.settingsOpen = true) },
     { id: 'synctex.forward', title: tr('在 PDF 中定位当前行', 'Show Current Line in PDF'), key: '⌥⌘J', run: () => app.forwardSync() },
     { id: 'export.docx', title: tr('导出为 Word（.docx）', 'Export to Word (.docx)'), run: () => app.exportDocx() },
     {

@@ -17,6 +17,9 @@
       <Icon name={it.icon} size={22} />
     </button>
   {/each}
+  <button class="gear" aria-label={tr('设置', 'Settings')} title={tr('设置（⌘,）', 'Settings (⌘,)')} onclick={() => (app.settingsOpen = true)}>
+    <Icon name="settings" size={20} />
+  </button>
 </nav>
 
 <style>
@@ -35,6 +38,9 @@
     justify-content: center;
     color: var(--fg3);
     position: relative;
+  }
+  .gear {
+    margin-top: auto;
   }
   button:hover,
   button.on {

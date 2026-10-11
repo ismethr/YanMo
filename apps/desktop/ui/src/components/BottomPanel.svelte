@@ -4,6 +4,21 @@
   import { tr } from '../lib/i18n.svelte';
 
   let compileErrors = $derived(app.lastCompile?.diagnostics.filter((d) => d.severity === 'error').length ?? 0);
+  // 编译日志筛选：排版提示（overfull / underfull box）默认不显示
+  let show = $state({ error: true, warning: true, badbox: false });
+  let counts = $derived({
+    error: compileErrors,
+    warning: app.lastCompile?.diagnostics.filter((d) => d.severity === 'warning').length ?? 0,
+    badbox: app.lastCompile?.diagnostics.filter((d) => d.severity === 'badbox').length ?? 0,
+  });
+  // 错误排在前面，同类按日志顺序
+  const rank = { error: 0, warning: 1, badbox: 2 } as const;
+  let shown = $derived(
+    (app.lastCompile?.diagnostics.filter((d) => show[d.severity]) ?? [])
+      .map((d, i) => ({ d, i }))
+      .sort((a, b) => rank[a.d.severity] - rank[b.d.severity] || a.i - b.i)
+      .map((x) => x.d),
+  );
   let label = $derived({ error: tr('错误', 'Error'), warning: tr('警告', 'Warning'), badbox: tr('排版', 'Layout') });
 
   // 面板高度拖拽
@@ -52,7 +67,20 @@
     {:else if app.compiling && !app.lastCompile}
       <p class="muted pad">{tr('编译中…', 'Compiling…')}</p>
     {:else if app.lastCompile}
-      {#each app.lastCompile.diagnostics as d, i (i)}
+      <div class="logbar">
+        {#each ['error', 'warning', 'badbox'] as const as k (k)}
+          <button class="chip" class:on={show[k]} aria-pressed={show[k]} disabled={!counts[k]} onclick={() => (show[k] = !show[k])}>{label[k]} {counts[k]}</button>
+        {/each}
+        <span class="grow"></span>
+        {#if app.lastCompile.log}<button class="lnk" onclick={() => void app.openLog()}>{tr('完整日志', 'Full log')}</button>{/if}
+        {#if app.lastCompile.pdf}<button class="lnk" onclick={() => void app.revealPdf()}>{tr('在访达中显示 PDF', 'Show PDF in folder')}</button>{/if}
+      </div>
+      {#if !shown.length}
+        <p class="pad {compileErrors ? 'muted' : 'c-ok'}">
+          {app.lastCompile.success ? tr('编译成功，没有需要显示的提示', 'Compiled; nothing to show') : tr('没有符合筛选条件的提示', 'Nothing matches the filter')}
+        </p>
+      {/if}
+      {#each shown as d, i (i)}
         <button class="prob" onclick={() => d.file && app.openFile(d.file, d.line ?? 1)}>
           <span class={d.severity === 'error' ? 'c-err' : 'c-warn'} aria-label={label[d.severity]}>{d.severity === 'error' ? '✕' : '!'}</span>
           <span class="msg">{d.message}</span>
@@ -75,6 +103,36 @@
 </section>
 
 <style>
+  .logbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px 4px;
+  }
+  .logbar .grow {
+    flex: 1;
+  }
+  .logbar .chip {
+    cursor: pointer;
+    padding: 2px 9px;
+  }
+  .logbar .chip.on {
+    background: var(--active);
+    color: var(--fg);
+    border-color: var(--fg3);
+  }
+  .logbar .chip:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .lnk {
+    font-size: 12px;
+    color: var(--accent);
+    padding: 0 4px;
+  }
+  .lnk:hover {
+    text-decoration: underline;
+  }
   section {
     flex: 0 0 auto;
     position: relative;

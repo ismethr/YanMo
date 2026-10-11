@@ -15,6 +15,8 @@ pub struct Workspace {
     toolchain: Option<Toolchain>,
     last_compile: Option<CompileOutput>,
     synctex: Option<SyncTex>,
+    /// 当前（或最近一次）编译的停止句柄
+    compile_cancel: ym_compile::CancelHandle,
 }
 
 /// 一次编译所需的全部信息。与 Workspace 分离，使宿主可以在不持有工作区锁的情况下编译。
@@ -127,14 +129,55 @@ impl Workspace {
         self.toolchain.get_or_insert_with(Toolchain::detect)
     }
 
-    pub fn compile_job(&mut self, engine: Option<Engine>) -> Result<CompileJob, CommandError> {
+    /// 停止正在进行的编译；没有在编译时返回 false。
+    pub fn cancel_compile(&self) -> bool {
+        let running = self.compile_cancel.is_running();
+        self.compile_cancel.cancel();
+        running
+    }
+
+    /// 项目设置（`.yanmo/project.toml`）
+    pub fn meta(&self) -> &ProjectMeta {
+        &self.meta
+    }
+
+    /// 修改并保存项目设置
+    pub fn update_meta(&mut self, f: impl FnOnce(&mut ProjectMeta)) -> Result<(), CommandError> {
+        f(&mut self.meta);
+        let root = self.root()?.to_path_buf();
+        self.meta.save(&root)?;
+        Ok(())
+    }
+
+    /// 重新检测编译工具（安装了新的 TeX 发行版之后）
+    pub fn redetect_toolchain(&mut self) -> &Toolchain {
+        self.toolchain = None;
+        self.toolchain()
+    }
+
+    /// 准备一次编译。未指定引擎时使用项目设置，再没有则自动选择。
+    pub fn compile_job(
+        &mut self,
+        engine: Option<Engine>,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<CompileJob, CommandError> {
         let root = self.root()?.to_path_buf();
         let main = self
             .main
             .clone()
             .ok_or_else(|| CommandError::Failed(no_main()))?;
         Ok(CompileJob {
-            request: CompileRequest { root, main, engine },
+            request: CompileRequest {
+                root,
+                main,
+                engine: engine.or(self.meta.engine),
+                shell_escape: self.meta.shell_escape,
+                timeout,
+                cancel: {
+                    self.compile_cancel = ym_compile::CancelHandle::default();
+                    self.compile_cancel.clone()
+                },
+            },
             toolchain: self.toolchain().clone(),
         })
     }
@@ -142,6 +185,12 @@ impl Workspace {
     pub fn finish_compile(&mut self, output: CompileOutput) {
         self.synctex = None;
         self.last_compile = Some(output);
+    }
+
+    /// 编译缓存被清理后，忘掉上次的结果
+    pub fn finish_compile_cleared(&mut self) {
+        self.synctex = None;
+        self.last_compile = None;
     }
 
     pub fn last_compile(&self) -> Option<&CompileOutput> {

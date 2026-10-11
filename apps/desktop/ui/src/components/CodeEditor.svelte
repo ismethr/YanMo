@@ -5,7 +5,8 @@
   import { EditorState } from '@codemirror/state';
   import { setDiagnostics } from '@codemirror/lint';
   import { app } from '../lib/store.svelte';
-  import { diagnosticsFor, extensionsFor } from '../lib/editor';
+  import { diagnosticsFor, extensionsFor, wrapExtension, wrapping } from '../lib/editor';
+  import { prefs } from '../lib/prefs.svelte';
   import { tr } from '../lib/i18n.svelte';
 
   let { path }: { path: string } = $props();
@@ -61,10 +62,18 @@
     const text = untrack(() => app.docs[p].text);
     let st = states.get(p);
     if (!st || st.doc.toString() !== text) {
-      st = EditorState.create({ doc: text, extensions: extensionsFor(p, [listener, pasteImages]) });
+      st = EditorState.create({ doc: text, extensions: extensionsFor(p, [listener, pasteImages], prefs.wrap) });
     }
     view.setState(st);
+    // 缓存的状态可能是在修改换行设置之前创建的
+    view.dispatch({ effects: wrapping.reconfigure(wrapExtension(untrack(() => prefs.wrap))) });
     current = p;
+  });
+
+  // 设置中切换自动换行
+  $effect(() => {
+    const on = prefs.wrap;
+    view?.dispatch({ effects: wrapping.reconfigure(wrapExtension(on)) });
   });
 
   // 问题波浪线：检查结果更新或切换文件后重新标注

@@ -24,7 +24,8 @@
     </button>
     <button onclick={() => app.showPanel('log')} aria-label={tr('打开编译日志', 'Open build log')}>
       {#if app.compiling}
-        {tr('编译中…', 'Compiling…')}
+        {tr('编译中…', 'Compiling…')} {app.compileElapsed}s
+        {#if app.compileElapsed >= 15 && app.lastCompile === null}<span class="muted">{tr('首次编译需要下载宏包，请稍候', 'the first build downloads packages, please wait')}</span>{/if}
       {:else if app.lastCompile}
         {app.lastCompile.success
           ? tr('✓ 已编译', '✓ Compiled')

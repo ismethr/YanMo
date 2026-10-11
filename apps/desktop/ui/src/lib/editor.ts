@@ -2,7 +2,7 @@
 
 import { basicSetup } from 'codemirror';
 import { EditorView } from '@codemirror/view';
-import type { EditorState, Extension } from '@codemirror/state';
+import { Compartment, type EditorState, type Extension } from '@codemirror/state';
 import { HighlightStyle, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { stex } from '@codemirror/legacy-modes/mode/stex';
 import type { Diagnostic } from '@codemirror/lint';
@@ -12,7 +12,7 @@ import type { Issue } from './types';
 const latex = StreamLanguage.define(stex);
 
 const theme = EditorView.theme({
-  '&': { height: '100%', fontSize: '13.5px', color: 'var(--fg)', backgroundColor: 'var(--bg)' },
+  '&': { height: '100%', fontSize: 'var(--editor-font-size, 13.5px)', color: 'var(--fg)', backgroundColor: 'var(--bg)' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.65' },
   '.cm-content': { caretColor: 'var(--fg)', padding: '8px 0' },
   '.cm-gutters': { backgroundColor: 'var(--bg)', color: 'var(--fg3)', border: 'none' },
@@ -33,10 +33,14 @@ const highlight = HighlightStyle.define([
   { tag: t.invalid, color: 'var(--err)' },
 ]);
 
-export function extensionsFor(path: string, listener: Extension): Extension[] {
+/** 自动换行可在设置中切换；同一个 Compartment 用于所有文件的编辑器状态 */
+export const wrapping = new Compartment();
+export const wrapExtension = (on: boolean): Extension => (on ? EditorView.lineWrapping : []);
+
+export function extensionsFor(path: string, listener: Extension, wrap = true): Extension[] {
   return [
     basicSetup,
-    EditorView.lineWrapping,
+    wrapping.of(wrapExtension(wrap)),
     path.endsWith('.tex') || path.endsWith('.sty') || path.endsWith('.cls') ? latex : [],
     theme,
     syntaxHighlighting(highlight),

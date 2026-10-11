@@ -106,6 +106,17 @@ export interface CompileOutput {
   diagnostics: CompileDiagnostic[];
   duration_ms: number;
   log_tail: string;
+  /** 被停止或超时 */
+  stopped: boolean;
+  /** 完整日志，相对项目根目录 */
+  log: string | null;
+}
+
+/** 项目设置（.yanmo/project.toml） */
+export interface ProjectSettings {
+  engine: 'auto' | 'tectonic' | 'xelatex' | 'pdflatex' | 'lualatex';
+  shell_escape: boolean;
+  main: string | null;
 }
 
 export interface Toolchain {

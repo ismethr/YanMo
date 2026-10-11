@@ -13,8 +13,10 @@ pub mod synctex;
 
 use serde::Serialize;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::{Instant, SystemTime};
+use std::process::{Child, Command, Output, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime};
 use ym_model::tr;
 use ym_model::Engine;
 
@@ -104,6 +106,111 @@ pub struct CompileRequest {
     pub main: PathBuf,
     /// 不指定时自动选择，见 [`choose_engine`]
     pub engine: Option<Engine>,
+    /// 允许 TeX 执行外部命令（minted 等宏包需要）
+    pub shell_escape: bool,
+    /// 超过这个时间仍未结束就停止编译
+    pub timeout: Option<Duration>,
+    /// 用于从其他线程停止编译
+    pub cancel: CancelHandle,
+}
+
+/// 停止正在进行的编译。只结束本次编译启动的进程（及其子进程，如 xelatex、biber）。
+#[derive(Debug, Clone, Default)]
+pub struct CancelHandle {
+    cancelled: Arc<AtomicBool>,
+    pid: Arc<Mutex<Option<u32>>>,
+}
+
+impl CancelHandle {
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.pid.lock().map(|p| p.is_some()).unwrap_or(false)
+    }
+}
+
+/// 结束编译进程及其启动的子进程。Unix 上编译进程自成一个进程组，按组结束；Windows 用 taskkill /T。
+fn kill_tree(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        let _ = Command::new("kill")
+            .args(["-TERM", &format!("-{}", child.id())])
+            .status();
+        std::thread::sleep(Duration::from_millis(300));
+    }
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &child.id().to_string()])
+            .status();
+    }
+    let _ = child.kill();
+}
+
+/// 运行编译命令，期间响应停止请求与超时。返回输出以及是否被停止 / 超时。
+fn run(mut cmd: Command, req: &CompileRequest) -> std::io::Result<(Output, Stop)> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+    let mut child = cmd
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    if let Ok(mut p) = req.cancel.pid.lock() {
+        *p = Some(child.id());
+    }
+    // 在后台线程读取输出，避免管道写满导致子进程阻塞
+    let read = |pipe: Option<Box<dyn std::io::Read + Send>>| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            if let Some(mut p) = pipe {
+                let _ = p.read_to_end(&mut buf);
+            }
+            buf
+        })
+    };
+    let out = read(child.stdout.take().map(|p| Box::new(p) as _));
+    let err = read(child.stderr.take().map(|p| Box::new(p) as _));
+    let started = Instant::now();
+    let mut stop = Stop::None;
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if req.cancel.cancelled.load(Ordering::SeqCst) {
+            stop = Stop::Cancelled;
+        } else if req.timeout.is_some_and(|t| started.elapsed() > t) {
+            stop = Stop::TimedOut;
+        }
+        if stop != Stop::None {
+            kill_tree(&mut child);
+            break child.wait()?;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    if let Ok(mut p) = req.cancel.pid.lock() {
+        *p = None;
+    }
+    Ok((
+        Output {
+            status,
+            stdout: out.join().unwrap_or_default(),
+            stderr: err.join().unwrap_or_default(),
+        },
+        stop,
+    ))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Stop {
+    None,
+    Cancelled,
+    TimedOut,
 }
 
 /// 一条诊断；`file` 已解析为相对项目根目录的路径（项目外的文件为 None）。
@@ -126,6 +233,10 @@ pub struct CompileOutput {
     pub duration_ms: u64,
     /// 日志末尾，便于界面展示和 AI 解释错误
     pub log_tail: String,
+    /// 被用户停止或超时
+    pub stopped: bool,
+    /// 完整日志，相对项目根目录
+    pub log: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -229,7 +340,16 @@ fn resolve_source(root: &Path, main_dir: &Path, name: &str) -> Option<String> {
         .map(|c| c.to_string_lossy().replace('\\', "/"))
 }
 
-/// 执行一次编译（阻塞）。
+/// 删除编译产物目录（`.yanmo/build/`）。
+pub fn clean(root: &Path) -> std::io::Result<()> {
+    let dir = root.join(BUILD_DIR);
+    if dir.is_dir() {
+        std::fs::remove_dir_all(dir)?;
+    }
+    Ok(())
+}
+
+/// 执行一次编译（阻塞），期间可通过 `req.cancel` 停止。
 pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, CompileError> {
     let main_abs = req.root.join(&req.main);
     let source = std::fs::read_to_string(&main_abs)?;
@@ -250,24 +370,37 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
     let log_path = out_dir.join(format!("{stem}.log"));
     let synctex_path = out_dir.join(format!("{stem}.synctex.gz"));
 
+    // 记录上次编译用的引擎
+    let engine_mark = out_dir.join(".engine");
+    let engine_name = format!("{engine:?}");
+    let engine_changed = std::fs::read_to_string(&engine_mark)
+        .map(|e| e.trim() != engine_name)
+        .unwrap_or(true);
+    let _ = std::fs::write(&engine_mark, &engine_name);
+
     let started = Instant::now();
     let before = SystemTime::now();
-    let output = match engine {
-        Engine::Tectonic => Command::new(tc.tectonic.as_ref().expect("checked"))
-            .args(["-X", "compile"])
-            .arg(&file)
-            .arg("--outdir")
-            .arg(&out_dir)
-            // 保留 .aux：导出 Word 时用它把交叉引用替换为真实编号
-            .args([
-                "--synctex",
-                "--keep-logs",
-                "--keep-intermediates",
-                "-Z",
-                "continue-on-errors",
-            ])
-            .current_dir(&cwd)
-            .output()?,
+    let cmd = match engine {
+        Engine::Tectonic => {
+            let mut c = Command::new(tc.tectonic.as_ref().expect("checked"));
+            c.args(["-X", "compile"])
+                .arg(&file)
+                .arg("--outdir")
+                .arg(&out_dir)
+                // 保留 .aux：导出 Word 时用它把交叉引用替换为真实编号
+                .args([
+                    "--synctex",
+                    "--keep-logs",
+                    "--keep-intermediates",
+                    "-Z",
+                    "continue-on-errors",
+                ])
+                .current_dir(&cwd);
+            if req.shell_escape {
+                c.args(["-Z", "shell-escape"]);
+            }
+            c
+        }
         _ => {
             let latexmk = tc.latexmk.as_ref().expect("checked");
             let flag = match engine {
@@ -280,21 +413,29 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
             if let Some(p) = std::env::var_os("PATH") {
                 path.extend(std::env::split_paths(&p));
             }
-            Command::new(latexmk)
-                .args([
-                    flag,
-                    "-interaction=nonstopmode",
-                    "-file-line-error",
-                    "-synctex=1",
-                    "-f",
-                ])
-                .arg(format!("-outdir={}", out_dir.display()))
-                .arg(&file)
-                .current_dir(&cwd)
-                .env("PATH", std::env::join_paths(path).unwrap_or_default())
-                .output()?
+            let mut c = Command::new(latexmk);
+            c.args([
+                flag,
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-synctex=1",
+                "-f",
+            ])
+            .arg(format!("-outdir={}", out_dir.display()))
+            .current_dir(&cwd)
+            .env("PATH", std::env::join_paths(path).unwrap_or_default());
+            if req.shell_escape {
+                c.arg("-shell-escape");
+            }
+            // 换了引擎后强制重新编译，否则 latexmk 会把上一个引擎生成的 PDF 当作最新
+            if engine_changed {
+                c.arg("-g");
+            }
+            c.arg(&file);
+            c
         }
     };
+    let (output, stop) = run(cmd, req)?;
     let duration_ms = started.elapsed().as_millis() as u64;
 
     let fresh = |p: &Path| modified(p).is_some_and(|m| m >= before);
@@ -319,6 +460,31 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
         })
         .collect();
 
+    match stop {
+        Stop::Cancelled => diagnostics.insert(
+            0,
+            Diagnostic {
+                severity: Severity::Error,
+                file: None,
+                line: None,
+                message: tr!("编译已停止", "Compilation was stopped"),
+            },
+        ),
+        Stop::TimedOut => diagnostics.insert(
+            0,
+            Diagnostic {
+                severity: Severity::Error,
+                file: None,
+                line: None,
+                message: tr!(
+                    "编译超过 {s} 秒仍未结束，已停止（可在设置中调整超时时间）",
+                    "Compilation did not finish within {s} seconds and was stopped (the timeout can be changed in Settings)",
+                    s = req.timeout.map(|t| t.as_secs()).unwrap_or(0)
+                ),
+            },
+        ),
+        Stop::None => {}
+    }
     // 日志之外的致命错误（如 Tectonic 下载宏包失败）
     let has_error = diagnostics.iter().any(|d| d.severity == Severity::Error);
     if !has_error && !output.status.success() {
@@ -343,7 +509,12 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
             .ok()
             .map(|r| r.to_string_lossy().replace('\\', "/"))
     };
-    let pdf_fresh = fresh(&pdf);
+    // latexmk 判断无需重新编译时不会改写 PDF，此时已有的 PDF 就是最新的
+    let pdf_fresh = fresh(&pdf)
+        || (engine != Engine::Tectonic
+            && stop == Stop::None
+            && output.status.success()
+            && pdf.is_file());
     let log_tail = match engine {
         Engine::Tectonic => {
             let noise = |l: &&str| {
@@ -364,7 +535,10 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
         ),
     };
     Ok(CompileOutput {
-        success: pdf_fresh && !diagnostics.iter().any(|d| d.severity == Severity::Error),
+        success: stop == Stop::None
+            && pdf_fresh
+            && !diagnostics.iter().any(|d| d.severity == Severity::Error),
+        stopped: stop != Stop::None,
         engine,
         pdf: if pdf_fresh { rel(&pdf) } else { None },
         synctex: if fresh(&synctex_path) {
@@ -375,6 +549,11 @@ pub fn compile(req: &CompileRequest, tc: &Toolchain) -> Result<CompileOutput, Co
         diagnostics,
         duration_ms,
         log_tail,
+        log: if fresh(&log_path) {
+            rel(&log_path)
+        } else {
+            None
+        },
     })
 }
 

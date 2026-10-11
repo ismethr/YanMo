@@ -5,6 +5,9 @@
   import { app } from '../lib/store.svelte';
   import { tr } from '../lib/i18n.svelte';
 
+  /** 嵌在设置窗口里时不显示"返回对话" */
+  let { embedded = false }: { embedded?: boolean } = $props();
+
   const ANTHROPIC_MODELS = $derived([
     { id: 'claude-opus-5-5', name: tr('Claude Opus 5.5（推荐）', 'Claude Opus 5.5 (recommended)') },
     { id: 'claude-sonnet-5-5', name: tr('Claude Sonnet 5.5（更快、更便宜）', 'Claude Sonnet 5.5 (faster, cheaper)') },
@@ -118,7 +121,7 @@
   <div class="actions">
     <button class="btn btn-pri" onclick={save} disabled={saving}>{tr('保存', 'Save')}</button>
     <button class="btn" onclick={test} disabled={saving}>{tr('测试连接', 'Test Connection')}</button>
-    {#if ai.configured}<button class="btn" onclick={() => (ai.showSettings = false)}>{tr('返回对话', 'Back to Chat')}</button>{/if}
+    {#if ai.configured && !embedded}<button class="btn" onclick={() => (ai.showSettings = false)}>{tr('返回对话', 'Back to Chat')}</button>{/if}
   </div>
   {#if testResult}<p class="small">{testResult}</p>{/if}
 </div>
